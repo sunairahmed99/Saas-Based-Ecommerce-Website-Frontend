@@ -1,0 +1,525 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: #0b1021;
+  color: #e5e7eb;
+  overflow-x: hidden !important;
+  width: 100%;
+}
+
+html {
+  overflow-x: hidden !important;
+  width: 100%;
+}
+
+
+
+/* Admin shared button styles */
+.admin-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.18s ease, background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.admin-btn:hover {
+  transform: translateY(-1px);
+}
+.admin-btn-primary {
+  background: linear-gradient(120deg, #22d3ee, #06b6d4);
+  color: #0b1624;
+  box-shadow: 0 6px 20px #22d3ee33;
+}
+.admin-btn-primary:hover {
+  box-shadow: 0 8px 24px #22d3ee55;
+}
+.admin-btn-ghost {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+.admin-btn-ghost:hover {
+  border-color: #22d3ee;
+  color: #e2e8f0;
+}
+.admin-btn-warning {
+  background: linear-gradient(120deg, #fbbf24, #f59e0b);
+  color: #0f172a;
+  box-shadow: 0 6px 18px #f59e0b40;
+}
+.admin-btn-danger {
+  background: linear-gradient(120deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 6px 18px #dc262640;
+}
+.admin-btn-outline {
+  background: transparent;
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+}
+.admin-btn-outline:hover {
+  color: #0ea5e9;
+  border-color: #0ea5e9;
+}
+
+/* ================= GLOBAL CONSISTENT STYLING ================= */
+
+/* Standard Button Styles - Used across all pages */
+.btn-primary {
+  background: linear-gradient(135deg, #f97316, #facc15);
+  color: #1e293b;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Standard Text Colors - Used across all pages */
+.text-primary {
+  color: #ffffff !important;
+}
+
+.text-secondary {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.text-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.text-accent {
+  color: #fbbf24 !important;
+}
+
+.text-cyan {
+  color: #00eaff !important;
+}
+
+.text-orange {
+  color: #f97316 !important;
+}
+
+.text-success {
+  color: #22c55e !important;
+}
+
+.text-error {
+  color: #ef4444 !important;
+}
+
+/* Standard Heading Styles */
+h1, h2, h3, h4, h5, h6 {
+  color: #ffffff;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+
+h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+h3 {
+  font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+}
+
+h4 {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+}
+
+h5, h6 {
+  font-size: clamp(0.9rem, 1.8vw, 1rem);
+}
+
+/* Standard Paragraph Text */
+p {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin: 0 0 1rem 0;
+}
+
+/* Standard Link Styles */
+a {
+  color: #fbbf24;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #f59e0b;
+  text-decoration: underline;
+}
+
+/* Standard Input Styles */
+input, textarea, select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.8rem;
+  color: #ffffff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #00eaff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Standard Card Styles */
+.card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.card-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ================= RESPONSIVE DESIGN ================= */
+
+/* Global responsive utilities */
+/* * {
+  box-sizing: border-box;
+} */ /* Commented out to check if this affects image display on mobile */
+
+/* Prevent horizontal scrolling - Commented out to allow full image width on mobile */
+html, body {
+  /* overflow-x: hidden; */
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Container utilities */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Hide scrollbar on mobile but keep functionality */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1200px) {
+  .container {
+    max-width: 100%;
+    padding: 0 1.5rem;
+  }
+}
+
+@media (max-width: 992px) {
+  .container {
+    padding: 0 1rem;
+  }
+
+  /* Stack flex items vertically on tablets */
+  .flex-tablet-stack {
+    flex-direction: column !important;
+  }
+
+  .flex-tablet-stack > * {
+    width: 100% !important;
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    /* padding: 0 0.75rem; */ /* Commented out to allow full image width on mobile */
+  }
+
+  /* Hide desktop elements on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Show mobile elements */
+  .mobile-only {
+    display: block !important;
+  }
+
+  /* Full width elements on mobile */
+  .mobile-full {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Stack all flex items on mobile */
+  .flex-mobile-stack {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  .flex-mobile-stack > * {
+    width: 100% !important;
+  }
+
+  /* Reduce padding and margins on mobile */
+  .mobile-padding {
+    padding: 0.75rem !important;
+  }
+
+  .mobile-margin {
+    margin: 0.5rem 0 !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    /* padding: 0 0.5rem; */ /* Commented out to allow full image width on mobile */
+  }
+
+  /* Extra small screens */
+  .xs-text-center {
+    text-align: center !important;
+  }
+
+  .xs-full-width {
+    width: 100vw !important;
+    margin-left: calc(-50vw + 50%) !important;
+  }
+
+  /* Reduce font sizes on very small screens */
+  .xs-small-text {
+    font-size: 0.85rem !important;
+  }
+
+  /* Stack everything on extra small screens */
+  .flex-xs-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .flex-xs-stack > * {
+    width: 100% !important;
+    margin-bottom: 0.75rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    /* padding: 0 0.25rem; */ /* Commented out to allow full image width on mobile */
+  }
+
+  /* Tiny screens */
+  .tiny-padding {
+    padding: 0.5rem !important;
+  }
+
+  .tiny-margin {
+    margin: 0.25rem !important;
+  }
+}
+
+/* Touch-friendly elements */
+@media (hover: none) and (pointer: coarse) {
+ 
+  button, .btn, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+
+}
+
+/* Responsive Button Styles */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  h1 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+  }
+
+  h2 {
+    font-size: clamp(1.3rem, 4vw, 1.8rem);
+  }
+
+  h3 {
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+
+  .border {
+    border-width: 0.5px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+

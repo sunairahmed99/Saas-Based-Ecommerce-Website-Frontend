@@ -1,0 +1,249 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import axios from 'axios';
+import { FaUser, FaPaperPlane, FaSearch, FaCircle, FaArrowLeft, FaPaperclip, FaSmile, FaEllipsisV, FaComments } from 'react-icons/fa';;
+import { API_BASE_URL } from '../config';
+import './AdminChat.css';
+
+const API_BASE = `${API_BASE_URL}`;
+
+const AdminChat = () => {
+    const [users, setUsers] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [socket, setSocket] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const messagesEndRef = useRef(null);
+    const socketRef = useRef(null);
+    const selectedUserRef = useRef(null);
+
+    // Keep the ref updated with the latest selectedUser
+    useEffect(() => {
+        selectedUserRef.current = selectedUser;
+    }, [selectedUser]);
+
+    const scrollToBottom = () => {
+        setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+    };
+
+    const fetchUsers = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${API_BASE}/api/chat/admin/users`, {
+                headers: { auth_token: token }
+            });
+            if (res.data && res.data.success) {
+                setUsers(res.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching chat users:', error);
+        }
+    };
+
+    const fetchHistory = async (userId) => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${API_BASE}/api/chat/messages/${userId}`, {
+                headers: { auth_token: token }
+            });
+            if (res.data && res.data.success) {
+                setMessages(res.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching history:', error);
+        }
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    useEffect(() => {
+        const newSocket = io(API_BASE);
+        socketRef.current = newSocket;
+        setSocket(newSocket);
+
+        // Fetch user list on mount
+        fetchUsers();
+
+        newSocket.on('receive_message', (message) => {
+            // Check if message belongs to current conversation using the ref
+            const currentSelected = selectedUserRef.current;
+            if (currentSelected && (message.sender == currentSelected._id || message.receiver == currentSelected._id)) {
+                setMessages((prev) => [...prev, message]);
+            }
+            // Refresh user list for last message updates
+            fetchUsers();
+        });
+
+        newSocket.on('new_chat_notification', () => {
+            fetchUsers();
+        });
+
+        return () => newSocket.close();
+    }, []);
+
+    const handleSelectUser = (user) => {
+        setSelectedUser(user);
+        fetchHistory(user._id);
+        if (socketRef.current) {
+            socketRef.current.emit('admin_join_user', user._id);
+        }
+    };
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !selectedUser || !socketRef.current) return;
+
+        const messageData = {
+            sender: "admin_id_placeholder", 
+            receiver: selectedUser._id,
+            message: newMessage,
+            isAdmin: true
+        };
+
+        socketRef.current.emit('send_message', messageData);
+        setNewMessage('');
+    };
+
+    const filteredUsers = users.filter(u => 
+        u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="admin-chat-page">
+            <div className={`admin-chat-container ${selectedUser ? 'user-selected' : ''}`}>
+                {/* Users Sidebar */}
+                <div className="chat-sidebar">
+                    <div className="sidebar-header">
+                        <div className="sidebar-top-row">
+                            <div className="admin-profile-pic">
+                                <FaUser />
+                            </div>
+                            <div className="sidebar-actions">
+                                <FaCircle className="action-icon" />
+                                <FaComments className="action-icon" />
+                                <FaEllipsisV className="action-icon" />
+                            </div>
+                        </div>
+                        <div className="search-box">
+                            <FaSearch />
+                            <input 
+                                type="text" 
+                                placeholder="Search or start new chat" 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="user-list">
+                        {filteredUsers.length > 0 ? (
+                            filteredUsers.map(user => (
+                                <div 
+                                    key={user._id} 
+                                    className={`user-item ${selectedUser?._id === user._id ? 'active' : ''}`}
+                                    onClick={() => handleSelectUser(user)}
+                                >
+                                    <div className="user-avatar">
+                                        {user.profileImage ? (
+                                            <img src={user.profileImage} alt={user.name} />
+                                        ) : (
+                                            <FaUser />
+                                        )}
+                                    </div>
+                                    <div className="user-info">
+                                        <div className="user-name-row">
+                                            <h4>{user.name}</h4>
+                                            <span className="last-time">
+                                                {user.lastMessageTime ? new Date(user.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </span>
+                                        </div>
+                                        <p className="last-msg">{user.lastMessage || 'Start a conversation'}</p>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="no-users">No conversations found</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Chat Area */}
+                <div className="chat-area">
+                    {selectedUser ? (
+                        <>
+                            <div className="chat-area-header">
+                                <div className="header-left">
+                                    <button 
+                                        className="back-btn" 
+                                        onClick={() => setSelectedUser(null)}
+                                    >
+                                        <FaArrowLeft />
+                                    </button>
+                                    <div className="user-avatar-small">
+                                        {selectedUser.profileImage ? (
+                                            <img src={selectedUser.profileImage} alt={selectedUser.name} />
+                                        ) : (
+                                            <FaUser />
+                                        )}
+                                    </div>
+                                    <div className="selected-user-info">
+                                        <h4>{selectedUser.name}</h4>
+                                        <div className="status-indicator">
+                                            <span className="online-dot"></span>
+                                            <span>Online</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="header-right">
+                                    <FaEllipsisV className="header-menu-icon" />
+                                </div>
+                            </div>
+
+                            <div className="admin-chat-messages">
+                                {messages.map((msg, index) => (
+                                    <div 
+                                        key={index} 
+                                        className={`admin-msg-bubble ${msg.isAdmin ? 'sent' : 'received'}`}
+                                    >
+                                        <div className="bubble-content">{msg.message}</div>
+                                        <div className="bubble-time">
+                                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            <form className="admin-chat-input" onSubmit={handleSendMessage}>
+                                <button type="button" className="input-icon-btn"><FaSmile /></button>
+                                <button type="button" className="input-icon-btn"><FaPaperclip /></button>
+                                <input 
+                                    type="text" 
+                                    placeholder="Type a message..." 
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                />
+                                <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
+                                    <FaPaperPlane />
+                                </button>
+                            </form>
+                        </>
+                    ) : (
+                        <div className="empty-chat-state">
+                            <div className="empty-icon">💬</div>
+                            <h3>Select a user to start chatting</h3>
+                            <p>Real-time customer support session</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AdminChat;

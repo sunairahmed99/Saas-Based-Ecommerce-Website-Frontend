@@ -1,0 +1,346 @@
+.profile-bg {
+  background: linear-gradient(128deg, #1e2027 0%, #334466 100%);
+  min-height: 100vh;
+  padding: 80px 20px 40px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .profile-bg {
+    padding: 70px 1rem 2rem 1rem;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .profile-bg {
+    padding: 80px 2rem 40px 2rem;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 1025px) {
+  .profile-bg {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 2.5rem 1rem;
+  }
+}
+
+.profile-shell {
+  width: 100%;
+  max-width: 980px;
+}
+
+.profile-card {
+  background: #ffffff10;
+  border-radius: 22px;
+  box-shadow: 0 18px 80px #0009;
+  backdrop-filter: blur(12px);
+  padding: 1.7rem 1.7rem 1.4rem 1.7rem;
+  color: #f7f7f7;
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-card::before {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd04355, transparent 70%);
+  top: -80px;
+  left: -40px;
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.avatar-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(#ffd043, #ff6b6b, #4facfe, #ffd043);
+  opacity: 0.95;
+  filter: blur(2px);
+  animation: rotateRing 12s linear infinite;
+}
+
+@keyframes rotateRing {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.avatar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #141e30;
+  box-shadow: 0 6px 20px #0008;
+  cursor: pointer;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.avatar input {
+  display: none;
+}
+
+.avatar-edit {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  background: linear-gradient(180deg, transparent, #000000aa);
+}
+
+.profile-intro h2 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+}
+
+.profile-intro p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #f1f1f1cc;
+}
+
+.profile-content {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.profile-form,
+.password-form {
+  background: #02081755;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 8px 35px #0007;
+}
+
+.profile-form h3,
+.password-form h3 {
+  margin: 0 0 0.7rem 0;
+  font-size: 1.02rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.8rem;
+}
+
+.field label {
+  font-size: 0.78rem;
+  margin-bottom: 0.18rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #ffffffaa;
+}
+
+.field input {
+  padding: 0.55em 0.8em;
+  border-radius: 8px;
+  border: 1px solid #ffffff33;
+  outline: none;
+  font-size: 0.93rem;
+  background: #020617cc;
+  color: #f7f7f7;
+}
+
+.field input:focus {
+  border-color: #ffd043aa;
+  box-shadow: 0 0 0 1px #ffd04355;
+}
+
+.field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #02061788;
+}
+
+.two-fields-row {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.two-fields-row .field {
+  flex: 1 1 50%;
+}
+
+.btn-primary,
+.btn-outline,
+.btn-secondary {
+  padding: 0.55em 1.2em;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  margin-top: 0.4rem;
+  transition: transform 0.13s, box-shadow 0.13s, opacity 0.2s;
+}
+
+.btn-primary, .btn-secondary {
+  background: linear-gradient(135deg, #f97316, #facc15);
+  color: #1e293b;
+  box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: #ffd043;
+  border: 1px solid #ffd043;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-outline:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: rgba(255, 208, 67, 0.1);
+  box-shadow: 0 4px 15px rgba(255, 208, 67, 0.3);
+}
+
+.btn-primary:active,
+.btn-secondary:active,
+.btn-outline:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 3px 10px #0008;
+}
+
+.btn-primary[disabled],
+.btn-secondary[disabled],
+.btn-outline[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .profile-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .profile-card {
+    padding: 1.4rem 1.05rem;
+  }
+  .profile-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .two-fields-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .two-fields-row .field {
+    flex: 1 1 100%;
+    margin-bottom: 0.8rem;
+  }
+  .profile-form,
+  .password-form {
+    padding: 1rem 0.9rem;
+  }
+}
+
+.error-msg {
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.success-msg {
+  background: #10b981;
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  border: 1px solid #059669;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.google-notice {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.google-notice .google-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.password-form input:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  cursor: not-allowed;
+}
