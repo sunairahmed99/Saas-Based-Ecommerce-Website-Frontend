@@ -93,7 +93,7 @@ const SplashScreen = ({ onComplete }) => {
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.2, duration: 0.8 }}
                             >
-                                E-SHOP
+                                MYSHOP
                             </motion.h1>
                             <motion.span 
                                 className="splash-tagline"
