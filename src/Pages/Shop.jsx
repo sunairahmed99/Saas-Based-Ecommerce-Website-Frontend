@@ -38,7 +38,7 @@ const Shop = memo(() => {
   const [toast, setToast] = useState(null);
   const [breadcrumbs, setBreadcrumbs] = useState([]);
   
-  const [filteredProducts, setFilteredProducts] = useState([]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [priceRange, setPriceRange] = useState([1, 10000000]);
@@ -226,39 +226,34 @@ const Shop = memo(() => {
   }, [user, seller, processingIds, isFavorite, dispatch]);
 
   // Memoized filtered and sorted products for performance
-  const filteredProductsMemo = useMemo(() => {
-
-
-
-
-
-
+  const filteredProducts = useMemo(() => {
     // Check if we're using search results from URL or local products
     const searchQueryParam = searchParams.get('search');
     const sellerIdParam = searchParams.get('seller');
-    const isSearchMode = searchQueryParam && searchResults.length > 0;
-    const isSellerMode = !!sellerIdParam; // If seller param exists, we're in seller mode
-
-
+    const categoryIdParam = searchParams.get('category');
+    const subcategoryIdParam = searchParams.get('subcategory');
+    
+    const isSearchMode = !!searchQueryParam;
+    const isSellerMode = !!sellerIdParam;
+    const isCategoryMode = !!categoryIdParam;
+    const isSubcategoryMode = !!subcategoryIdParam;
 
     // Use appropriate source based on mode
     let sourceProducts;
     if (isSearchMode) {
       sourceProducts = searchResults;
-
     } else if (isSellerMode) {
-      sourceProducts = sellerProducts; // Always use seller products when in seller mode, even if empty
-
+      sourceProducts = sellerProducts;
+    } else if (isCategoryMode || isSubcategoryMode) {
+      // In category/subcategory mode, ProductSlice already filtered them into searchResults 
+      // or we can use allProducts if searchResults is empty but we have them loaded
+      sourceProducts = searchResults.length > 0 ? searchResults : allProducts;
     } else {
       sourceProducts = allProducts;
-
     }
 
-
-
-    // Filter to show only approved/active products to regular users
+    // Filter to show only active products
     const activeProducts = sourceProducts.filter(product => product.pstatus === "active");
-
 
     let filtered = activeProducts.map((p) => ({
       ...p,
@@ -272,41 +267,30 @@ const Shop = memo(() => {
       discount: p.pdis || 0,
       rating: p.rating || 0,
       reviews: p.reviewCount || 0,
-      sellerid: p.sellerid, // Preserve seller info
+      sellerid: p.sellerid,
     }));
 
-
-
-
-    // Search filter (only for local search, not URL search)
-    if (searchQuery && !isSearchMode) {
+    // Search filter (local filter on top of search results or all products)
+    if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
-      const beforeCount = filtered.length;
       filtered = filtered.filter((p) =>
         p.name?.toLowerCase().includes(searchLower) ||
         p.pdescription?.toLowerCase().includes(searchLower)
       );
-
     }
 
-    // Category filter
+    // Category selection filter (UI filter)
     if (selectedCategory !== "All") {
-      const beforeCount = filtered.length;
       filtered = filtered.filter((p) => p.category === selectedCategory);
-
     }
 
     // Price range filter
-    const beforePriceCount = filtered.length;
     filtered = filtered.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
     );
 
-
     // Rating filter
-    const beforeRatingCount = filtered.length;
     filtered = filtered.filter((p) => parseFloat(p.rating) >= minRating);
-
 
     // Sort
     switch (sortBy) {
@@ -329,19 +313,13 @@ const Shop = memo(() => {
         break;
     }
 
-
-
-
-
     return filtered;
   }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, allProducts, searchResults, searchParams, sellerProducts]);
 
-  // Update filtered products state
+  // Reset page to 1 when filters change
   useEffect(() => {
-    setFilteredProducts(filteredProductsMemo);
     setCurrentPage(1);
-  }, [filteredProductsMemo]);
-
+  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy]);
 
   // Memoized pagination calculations
   const { paginatedProducts, totalPages } = useMemo(() => {
