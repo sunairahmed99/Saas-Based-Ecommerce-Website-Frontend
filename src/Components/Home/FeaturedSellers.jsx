@@ -1,9 +1,9 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, memo, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { fetchTopPerformingSellers, selectTopPerformingSellers, selectTopPerformingLoading } from "../../Features/Backend/SellerSlice";
 
-const FeaturedSellers = () => {
+const FeaturedSellers = memo(() => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const topPerformingSellers = useSelector(selectTopPerformingSellers);
@@ -259,6 +259,6 @@ const FeaturedSellers = () => {
       `}</style>
     </>
   );
-};
+});
 
 export default FeaturedSellers;

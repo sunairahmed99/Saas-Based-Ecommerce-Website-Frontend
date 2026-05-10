@@ -106,7 +106,7 @@
     left: 0;
     right: 0;
     top: 64px; /* approx navbar height */
-    width: 100vw;
+    width: 100%;
     max-width: 100vw;
     left: 0;
     right: 0;
@@ -386,7 +386,7 @@
     top: 80px;
     left: 0;
     background: #18232d;
-    width: 100vw;
+    width: 100%;
     flex-direction: column;
     align-items: center;
     gap: 1.6rem;

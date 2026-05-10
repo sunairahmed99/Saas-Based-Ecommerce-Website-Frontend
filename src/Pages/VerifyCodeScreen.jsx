@@ -170,14 +170,22 @@ const VerifyCodeScreen = () => {
         @media (max-width: 480px) {
           .login-bg {
             padding: 20px 10px;
+            width: 100%;
+            overflow-x: hidden;
           }
           .login-box {
             max-width: 100%;
-            width: 95%;
-            padding: 1.2rem 1rem;
+            width: 100%;
+            padding: 1.2rem 0.8rem;
           }
           .login-box h2 {
-            font-size: 1rem;
+            font-size: 1.1rem;
+          }
+          .login-form input {
+             letter-spacing: 1px;
+             font-size: 0.85rem;
+             width: 100%;
+             padding: 0.6rem 0.5rem;
           }
         }
       `}</style>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, memo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FaHeart, FaCheckCircle } from "react-icons/fa";
@@ -8,7 +8,7 @@ import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, select
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 
-const FlashDeals = () => {
+const FlashDeals = memo(() => {
   const dispatch = useDispatch();
   const dealsBySeller = useSelector(selectHomeFlashDeals) || [];
   const loading = useSelector(selectFlashDealLoading);
@@ -34,8 +34,8 @@ const FlashDeals = () => {
     }
   }, [toast]);
 
-  // Scroll function for navigation arrows
-  const scroll = (direction) => {
+  // Scroll function for navigation arrows (memoized)
+  const scroll = useCallback((direction) => {
     if (scrollRef.current) {
       const scrollAmount = 250;
       scrollRef.current.scrollBy({
@@ -43,7 +43,7 @@ const FlashDeals = () => {
         behavior: "smooth",
       });
     }
-  };
+  }, []);
 
   // Check if product is in favorites
   const isFavorite = (productId) => {
@@ -52,8 +52,8 @@ const FlashDeals = () => {
     );
   };
 
-  // Handle favorite toggle
-  const handleFavoriteClick = async (e, productId) => {
+  // Handle favorite toggle (memoized)
+  const handleFavoriteClick = useCallback(async (e, productId) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -91,7 +91,7 @@ const FlashDeals = () => {
           });
         }
       } else {
-      await dispatch(addToFavorites(productId)).unwrap();
+        await dispatch(addToFavorites(productId)).unwrap();
         // Refetch favorites to update UI
         dispatch(fetchFavorites());
         setToast({
@@ -114,11 +114,14 @@ const FlashDeals = () => {
         return newSet;
       });
     }
-  };
+  }, [user, seller, favorites, processingIds, dispatch]);
 
+  // Fetch flash deals only if not already loaded
   useEffect(() => {
-    dispatch(fetchHomeFlashDeals());
-  }, [dispatch]);
+    if (!dealsBySeller || dealsBySeller.length === 0) {
+      dispatch(fetchHomeFlashDeals());
+    }
+  }, [dispatch, dealsBySeller?.length]);
 
 
   return (
@@ -437,6 +440,6 @@ const FlashDeals = () => {
       </AnimatePresence>
     </section>
   );
-};
+});
 
 export default FlashDeals;

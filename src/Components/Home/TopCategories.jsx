@@ -1,16 +1,18 @@
-import React, { useEffect } from "react";
+import React, { useEffect, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchTrendingCategories, incrementCategoryClicks, selectTrendingCategories } from "../../Features/Backend/CategorySlice";
 
-const TopCategories = () => {
+const TopCategories = memo(() => {
   const dispatch = useDispatch();
   const categories = useSelector(selectTrendingCategories);
 
-  // Fetch trending categories on mount
+  // Fetch trending categories only if not already loaded
   useEffect(() => {
-    dispatch(fetchTrendingCategories(10));
-  }, [dispatch]);
+    if (!categories || categories.length === 0) {
+      dispatch(fetchTrendingCategories(10));
+    }
+  }, [dispatch, categories?.length]);
 
   // Handle category click tracking
   const handleCategoryClick = (categoryId) => {
@@ -172,7 +174,7 @@ const TopCategories = () => {
       `}</style>
     </>
   );
-};
+});
 
 export default TopCategories;
 

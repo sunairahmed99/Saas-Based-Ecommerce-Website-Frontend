@@ -89,8 +89,10 @@ const Shop = memo(() => {
       // Fetch products by category
       dispatch(fetchProductsByCategory(categoryId));
     } else {
-      // Fetch all products
-      dispatch(fetchproducts());
+      // Fetch all products only if not loaded
+      if (!allProducts || allProducts.length === 0) {
+        dispatch(fetchproducts());
+      }
     }
   }, [dispatch, searchParams]);
 

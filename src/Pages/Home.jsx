@@ -1,4 +1,4 @@
-import React, { useEffect, memo, useMemo } from "react";
+import React, { useEffect, memo, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Navbar from "../Components/Navbar";
 import HeroBanner from "../Components/Home/HeroBanner";
@@ -15,9 +15,11 @@ import {
   fetchTrendingProducts,
   fetchForYouProducts,
   fetchLatestProducts,
+  fetchHomeFlashDeals,
   selectTrendingProducts,
   selectForYouProducts,
-  selectLatestProducts
+  selectLatestProducts,
+  selectFlashDeals
 } from "../Features/Backend/ProductSlice";
 import { fetchApprovedReviews, selectApprovedReviews } from "../Features/Backend/ReviewSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
@@ -26,10 +28,12 @@ import { getBehaviorBasedRecommendations, getRandomProducts, cleanupOldBehavior 
 
 const Home = memo(() => {
   const dispatch = useDispatch();
+  const scrollRef = useRef(null);
   const user = useSelector(selectUser);
   const trendingProducts = useSelector(selectTrendingProducts);
   const forYouProducts = useSelector(selectForYouProducts);
   const latestProducts = useSelector(selectLatestProducts);
+  const dealsBySeller = useSelector(selectFlashDeals);
   const approvedReviews = useSelector(selectApprovedReviews) || [];
 
   // Get user ID from user object
@@ -48,6 +52,13 @@ const Home = memo(() => {
     }
   }, [dispatch, trendingProducts?.length, latestProducts?.length, approvedReviews?.length]);
 
+  // Fetch flash deals only if not already loaded
+  useEffect(() => {
+    if (!dealsBySeller || dealsBySeller.length === 0) {
+      dispatch(fetchHomeFlashDeals());
+    }
+  }, [dispatch, dealsBySeller?.length]);
+
   // Fetch "For You" products if user is logged in
   useEffect(() => {
     if (userId) {
@@ -55,14 +66,32 @@ const Home = memo(() => {
     }
   }, [dispatch, userId]);
 
-  // Use latest products (limit 10 from backend)
-  const electronicsProducts = (latestProducts || []).filter(product => product.pstatus === "active");
+  // Scroll function for navigation arrows (memoized)
+  const scroll = useCallback((direction) => {
+    if (scrollRef.current) {
+      const scrollAmount = 250;
+      scrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  }, []);
+
+  // Memoized filtered products to prevent redundant calculations
+  const electronicsProducts = useMemo(() => 
+    (latestProducts || []).filter(product => product.pstatus === "active"),
+    [latestProducts]
+  );
   
-  // Filter trending products to only show active ones
-  const activeTrendingProducts = (trendingProducts || []).filter(product => product.pstatus === "active");
+  const activeTrendingProducts = useMemo(() => 
+    (trendingProducts || []).filter(product => product.pstatus === "active"),
+    [trendingProducts]
+  );
   
-  // Filter "For You" products to only show active ones
-  const activeForYouProducts = (forYouProducts || []).filter(product => product.pstatus === "active");
+  const activeForYouProducts = useMemo(() => 
+    (forYouProducts || []).filter(product => product.pstatus === "active"),
+    [forYouProducts]
+  );
 
   // Enhanced "For You" logic: always show recommendations
   const forYouRecommendations = useMemo(() => {
