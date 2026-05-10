@@ -33,7 +33,8 @@ const SplashScreen = ({ onComplete }) => {
                     dispatch(fetchLatestProducts()),
                     dispatch(fetchTrendingProducts()),
                     dispatch(fetchFeaturedProducts()),
-                    dispatch(fetchHomeFlashDeals())
+                    dispatch(fetchHomeFlashDeals()),
+                    dispatch(fetchproducts())
                 ];
 
                 // Wait for all APIs to finish, or 15s max
