@@ -15,54 +15,81 @@ const SplashScreen = ({ onComplete }) => {
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+        
         const loadData = async () => {
             const startTime = Date.now();
+            const minStayTime = 15000; // 15 seconds
             
-            // Safety timeout to ensure user is never stuck for more than 15 seconds
-            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
+            // Safety timeout
+            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 20000));
 
             try {
-                setStatusText('Preparing your shopping experience...');
+                if (isMounted) setStatusText('Initializing secure connection...');
                 
-                // Essential fetches
+                // Simulation of progress
+                const progressInterval = setInterval(() => {
+                    if (!isMounted) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                    setProgress(prev => (prev >= 98 ? prev : prev + 1));
+                }, 140);
+
+                // Essential fetches with unwrap() to ensure we wait for completion
+                const safeFetch = async (thunk) => {
+                    try {
+                        await dispatch(thunk).unwrap();
+                    } catch (e) {
+                        console.warn('Pre-fetch non-critical failure:', e);
+                        // We don't crash the whole splash for one failure
+                    }
+                };
+
                 const apiPromises = [
-                    dispatch(fetchcategories()),
-                    dispatch(fetchTrendingCategories(10)),
-                    dispatch(fetchsubcategories()),
-                    dispatch(fetchBanners()),
-                    dispatch(fetchLatestProducts()),
-                    dispatch(fetchTrendingProducts()),
-                    dispatch(fetchFeaturedProducts()),
-                    dispatch(fetchHomeFlashDeals()),
-                    dispatch(fetchproducts())
+                    safeFetch(fetchcategories()),
+                    safeFetch(fetchTrendingCategories(10)),
+                    safeFetch(fetchsubcategories()),
+                    safeFetch(fetchBanners()),
+                    safeFetch(fetchLatestProducts()),
+                    safeFetch(fetchTrendingProducts()),
+                    safeFetch(fetchFeaturedProducts()),
+                    safeFetch(fetchHomeFlashDeals()),
+                    safeFetch(fetchproducts())
                 ];
 
-                // Wait for all APIs to finish, or 15s max
+                // Wait for APIs or timeout
                 await Promise.race([
                     Promise.all(apiPromises),
                     timeoutPromise
                 ]);
                 
-                setProgress(100);
-                setStatusText('Welcome!');
+                clearInterval(progressInterval);
+                if (isMounted) {
+                    setProgress(100);
+                    setStatusText('Almost there...');
+                }
 
                 const elapsedTime = Date.now() - startTime;
-                const remainingTime = Math.max(0, 500 - elapsedTime); // Min stay 500ms
+                const remainingTime = Math.max(0, minStayTime - elapsedTime);
 
                 setTimeout(() => {
-                    setIsVisible(false);
+                    if (isMounted) setIsVisible(false);
                     setTimeout(() => {
-                        if (onComplete) onComplete();
-                    }, 400); 
+                        if (isMounted && onComplete) onComplete();
+                    }, 800); 
                 }, remainingTime);
 
             } catch (error) {
-                console.error('Splash screen loading error:', error);
-                onComplete();
+                console.error('Critical Splash Error:', error);
+                setTimeout(() => {
+                    if (isMounted && onComplete) onComplete();
+                }, 3000);
             }
         };
 
         loadData();
+        return () => { isMounted = false; };
     }, [dispatch, onComplete]);
 
     return (
