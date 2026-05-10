@@ -7,7 +7,7 @@ import { Image } from "react-bootstrap";
 import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup } from "react-icons/fa";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
-import { fetchRelatedProducts, selectRelatedProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
+import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
 import { addToCart, fetchCartItems, fetchCartCount, selectAddCartLoading, selectAddCartError, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { addToFavorites, fetchFavorites, deleteFavorite, checkFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites } from "../Features/Backend/FavoriteSlice";
@@ -25,7 +25,6 @@ function ProductDetail() {
 
   const [product, setProduct] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [toast, setToast] = useState(null);
@@ -62,8 +61,6 @@ function ProductDetail() {
   })();
 
   const relatedProducts = useSelector(selectRelatedProducts) || [];
-  
-  // ... other states ...
 
   useEffect(() => {
     // Only fetch essential data, NOT all products
@@ -146,13 +143,17 @@ function ProductDetail() {
     }
   }, [toast]);
 
-  if (loading) {
+  // Only show loader if we don't have the product data yet
+  if (!product && loading) {
     return (
       <>
         <Navbar />
         <motion.div className="product-detail-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-          <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-            Loading product...
+          <motion.div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div className="custom-loader"></div>
+            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ fontSize: '1.1rem', fontWeight: '500', color: '#00eaff' }}>
+              Optimizing Experience...
+            </motion.div>
           </motion.div>
         </motion.div>
         <Footer />
@@ -162,6 +163,17 @@ function ProductDetail() {
             background: linear-gradient(128deg, #1e2027 0%, #334466 100%);
             padding: 2rem 2vw 4vw 2vw;
             color: #fff;
+          }
+          .custom-loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 234, 255, 0.1);
+            border-top-color: #00eaff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
           }
         `}</style>
       </>
