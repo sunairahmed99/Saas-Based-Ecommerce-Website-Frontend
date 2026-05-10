@@ -15,12 +15,11 @@ import {
   fetchTrendingProducts,
   fetchForYouProducts,
   fetchLatestProducts,
-  fetchHomeFlashDeals,
   selectTrendingProducts,
   selectForYouProducts,
   selectLatestProducts,
-  selectFlashDeals
 } from "../Features/Backend/ProductSlice";
+import { fetchHomeFlashDeals, selectHomeFlashDeals } from "../Features/Backend/FlashDealSlice";
 import { fetchApprovedReviews, selectApprovedReviews } from "../Features/Backend/ReviewSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import SEOHead from "../Components/SEOHead";
@@ -33,7 +32,7 @@ const Home = memo(() => {
   const trendingProducts = useSelector(selectTrendingProducts);
   const forYouProducts = useSelector(selectForYouProducts);
   const latestProducts = useSelector(selectLatestProducts);
-  const dealsBySeller = useSelector(selectFlashDeals);
+  const dealsBySeller = useSelector(selectHomeFlashDeals);
   const approvedReviews = useSelector(selectApprovedReviews) || [];
 
   // Get user ID from user object
