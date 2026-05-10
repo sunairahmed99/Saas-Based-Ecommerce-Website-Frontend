@@ -85,12 +85,18 @@ const Navbar = () => {
   // Prepare categories with their subcategories
   const categoryList = React.useMemo(() => {
     return (categories || []).map((cat) => {
-      const subs =
-        (subcategories || []).filter(
-          (sub) => sub?.catid === cat?._id || sub?.catid?._id === cat?._id
-        ) || [];
+      const currentCatId = cat?._id || cat?.id;
+      const subs = (subcategories || []).filter((sub) => {
+        const subCatId = sub?.catid?._id || sub?.catid;
+        return (
+          subCatId && 
+          currentCatId && 
+          subCatId.toString() === currentCatId.toString()
+        );
+      });
+
       return {
-        id: cat?._id || cat?.id || cat?.name,
+        id: currentCatId,
         name: cat?.name || cat?.cname || "Category",
         subcategories: subs.map((s) => ({
           id: s?._id || s?.id,

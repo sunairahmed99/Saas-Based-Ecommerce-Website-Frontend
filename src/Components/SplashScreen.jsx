@@ -16,47 +16,37 @@ const SplashScreen = ({ onComplete }) => {
 
     useEffect(() => {
         const loadData = async () => {
+            const startTime = Date.now();
             try {
-                // Phase 1: Categories & Banners
-                setStatusText('Setting up your shop...');
+                // Essential fetches for Home Page fold
+                setStatusText('Loading experience...');
                 await Promise.all([
                     dispatch(fetchcategories()),
                     dispatch(fetchTrendingCategories(10)),
                     dispatch(fetchsubcategories()),
-                    dispatch(fetchBanners())
-                ]);
-                setProgress(35);
-
-                // Phase 2: All Products
-                setStatusText('Loading latest products...');
-                await dispatch(fetchproducts());
-                setProgress(65);
-
-                // Phase 3: Featured & Flash Deals
-                setStatusText('Fetching exclusive deals...');
-                await Promise.all([
+                    dispatch(fetchBanners()),
                     dispatch(fetchTrendingProducts()),
                     dispatch(fetchFeaturedProducts()),
                     dispatch(fetchHomeFlashDeals())
                 ]);
-                setProgress(90);
-
-                // Phase 4: Finalizing
-                setStatusText('Ready to Shop!');
+                
                 setProgress(100);
+                setStatusText('Welcome!');
 
-                // Minimum display time for "WOW" factor
+                // Minimum stay of 800ms to ensure branding but keep it snappy
+                const elapsedTime = Date.now() - startTime;
+                const remainingTime = Math.max(0, 800 - elapsedTime);
+
                 setTimeout(() => {
                     setIsVisible(false);
                     setTimeout(() => {
                         if (onComplete) onComplete();
-                    }, 800); // Match CSS transition
-                }, 2000);
+                    }, 600); // Snappier exit
+                }, remainingTime);
 
             } catch (error) {
                 console.error('Splash screen loading error:', error);
-                // Fail gracefully
-                setTimeout(() => onComplete(), 500);
+                onComplete();
             }
         };
 
@@ -70,7 +60,7 @@ const SplashScreen = ({ onComplete }) => {
                     className="splash-container"
                     initial={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 1, ease: "easeInOut" }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
                 >
                     {/* Dynamic Background */}
                     <div className="splash-bg-layer">
