@@ -14,10 +14,10 @@ import BoostedProducts from "../Components/Home/BoostedProducts";
 import {
   fetchTrendingProducts,
   fetchForYouProducts,
-  fetchproducts,
+  fetchLatestProducts,
   selectTrendingProducts,
   selectForYouProducts,
-  selectProducts
+  selectLatestProducts
 } from "../Features/Backend/ProductSlice";
 import { fetchApprovedReviews, selectApprovedReviews } from "../Features/Backend/ReviewSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
@@ -29,7 +29,7 @@ const Home = memo(() => {
   const user = useSelector(selectUser);
   const trendingProducts = useSelector(selectTrendingProducts);
   const forYouProducts = useSelector(selectForYouProducts);
-  const allProducts = useSelector(selectProducts);
+  const latestProducts = useSelector(selectLatestProducts);
   const approvedReviews = useSelector(selectApprovedReviews) || [];
 
   // Get user ID from user object
@@ -38,7 +38,7 @@ const Home = memo(() => {
   // Fetch trending products and all products on mount
   useEffect(() => {
     dispatch(fetchTrendingProducts());
-    dispatch(fetchproducts());
+    dispatch(fetchLatestProducts());
     dispatch(fetchApprovedReviews());
   }, [dispatch]);
 
@@ -49,11 +49,8 @@ const Home = memo(() => {
     }
   }, [dispatch, userId]);
 
-  // Filter products to only show active products
-  const activeProducts = allProducts.filter(product => product.pstatus === "active");
-  
-  // Get all products for "Latest Products" (only active products)
-  const electronicsProducts = activeProducts.slice(0, 10);
+  // Use latest products (limit 10 from backend)
+  const electronicsProducts = (latestProducts || []).filter(product => product.pstatus === "active");
   
   // Filter trending products to only show active ones
   const activeTrendingProducts = (trendingProducts || []).filter(product => product.pstatus === "active");
@@ -72,15 +69,15 @@ const Home = memo(() => {
     }
 
     // Otherwise, use behavior-based recommendations
-    const behaviorBased = getBehaviorBasedRecommendations(activeProducts, 12);
+    const behaviorBased = getBehaviorBasedRecommendations(electronicsProducts, 12);
 
     if (behaviorBased.length > 0) {
       return behaviorBased;
     }
 
     // As last resort, show random products
-    return getRandomProducts(activeProducts, 12);
-  }, [activeForYouProducts, activeProducts]);
+    return getRandomProducts(electronicsProducts, 12);
+  }, [activeForYouProducts, electronicsProducts]);
 
   return (
     <>

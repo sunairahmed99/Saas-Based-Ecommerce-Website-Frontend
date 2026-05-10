@@ -16,6 +16,18 @@ export const fetchproducts = createAsyncThunk(
   }
 );
 
+export const fetchLatestProducts = createAsyncThunk(
+  "products/fetchLatestProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${API_URL}/latest`);
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(err?.message || "Something went wrong");
+    }
+  }
+);
+
 // seller-id se sirf us seller ke products
 export const fetchSellerProducts = createAsyncThunk(
   "products/fetchSellerProducts",
@@ -278,6 +290,9 @@ const ProductSlice = createSlice({
     productsBySeller: [],
     sellerProductsLoading: false,
     sellerProductsError: null,
+    latestProducts: [],
+    latestLoading: false,
+    latestError: null,
     trendingProducts: [],
     trendingLoading: false,
     trendingError: null,
@@ -477,6 +492,18 @@ const ProductSlice = createSlice({
         state.featuredLoading = false;
         state.featuredError = action.payload;
       })
+      .addCase(fetchLatestProducts.pending, (state) => {
+        state.latestLoading = true;
+        state.latestError = null;
+      })
+      .addCase(fetchLatestProducts.fulfilled, (state, action) => {
+        state.latestLoading = false;
+        state.latestProducts = action.payload;
+      })
+      .addCase(fetchLatestProducts.rejected, (state, action) => {
+        state.latestLoading = false;
+        state.latestError = action.payload;
+      })
       .addCase(toggleProductFeatured.fulfilled, (state, action) => {
         const index = state.products.findIndex(p => p._id === action.payload._id);
         if (index !== -1) {
@@ -512,4 +539,6 @@ export const selectSearchResults = (state) => state.products.searchResults;
 export const selectSearchLoading = (state) => state.products.searchLoading;
 export const selectSearchError = (state) => state.products.searchError;
 export const selectFeaturedProducts = (state) => state.products.featuredProducts;
+export const selectLatestProducts = (state) => state.products.latestProducts;
 export const selectFeaturedLoading = (state) => state.products.featuredLoading;
+export const selectLatestLoading = (state) => state.products.latestLoading;

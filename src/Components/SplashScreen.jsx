@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
-import { fetchproducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
+import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
 import { fetchHomeFlashDeals } from '../Features/Backend/FlashDealSlice';
 import { fetchsubcategories } from '../Features/Backend/SubCategorySlice';
 import { fetchBanners } from '../Features/Backend/BannerSlice';
@@ -30,6 +30,7 @@ const SplashScreen = ({ onComplete }) => {
                     dispatch(fetchTrendingCategories(10)),
                     dispatch(fetchsubcategories()),
                     dispatch(fetchBanners()),
+                    dispatch(fetchLatestProducts()),
                     dispatch(fetchTrendingProducts()),
                     dispatch(fetchFeaturedProducts()),
                     dispatch(fetchHomeFlashDeals())
