@@ -1,22 +1,49 @@
 .admin-layout {
   display: flex;
   width: 100%;
-  max-width: 100vw;
+  max-width: 100%;
   overflow-x: hidden;
+  position: relative;
 }
 
 .admin-content {
   flex: 1;
-  min-width: 0; /* Critical for flexbox with overflowing children */
+  min-width: 0;
   min-height: 100vh;
   padding: 30px;
   transition: all 0.3s ease;
-  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure all tables are responsive within admin content */
+.admin-content .table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+}
+
+/* Force fix for any rogue wide elements */
+.admin-content > * {
+  max-width: 100%;
 }
 
 @media (max-width: 1000px) {
   .admin-content {
-    padding: 80px 15px 30px 15px; /* Extra top padding for toggle button */
+    padding: 80px 15px 30px 15px;
     width: 100% !important;
+  }
+}
+
+/* Fix for mobile screens where tables might still overflow if not handled */
+@media (max-width: 600px) {
+  .admin-content .glass-table {
+    font-size: 0.8rem; /* Smaller font for mobile tables */
+  }
+  .admin-content .glass-table th, 
+  .admin-content .glass-table td {
+    padding: 8px 4px;
+    white-space: nowrap; /* Allow horizontal scroll within the table wrapper */
   }
 }

@@ -168,9 +168,16 @@ const VerifyCodeScreen = () => {
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 480px) {
+          .login-bg {
+            padding: 20px 10px;
+          }
           .login-box {
-            max-width: 90vw;
+            max-width: 100%;
+            width: 95%;
             padding: 1.2rem 1rem;
+          }
+          .login-box h2 {
+            font-size: 1rem;
           }
         }
       `}</style>
