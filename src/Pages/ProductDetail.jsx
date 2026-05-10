@@ -7,7 +7,7 @@ import { Image } from "react-bootstrap";
 import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup } from "react-icons/fa";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
-import { fetchproducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
+import { fetchRelatedProducts, selectRelatedProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
 import { addToCart, fetchCartItems, fetchCartCount, selectAddCartLoading, selectAddCartError, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { addToFavorites, fetchFavorites, deleteFavorite, checkFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites } from "../Features/Backend/FavoriteSlice";
@@ -61,23 +61,12 @@ function ProductDetail() {
     return d;
   })();
 
-  useEffect(() => {
-    dispatch(fetchproducts());
-  }, [dispatch]);
-
-  // Force mobile button re-render to ensure proper width
-  useEffect(() => {
-    const isMobile = window.innerWidth <= 768;
-    if (isMobile) {
-      // Small delay to ensure CSS is loaded
-      const timer = setTimeout(() => {
-        setForceMobileRender(prev => !prev);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+  const relatedProducts = useSelector(selectRelatedProducts) || [];
+  
+  // ... other states ...
 
   useEffect(() => {
+    // Only fetch essential data, NOT all products
     const token = localStorage.getItem("token");
     const loginType = localStorage.getItem("loginType");
 
@@ -89,30 +78,11 @@ function ProductDetail() {
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (allProducts.length > 0) {
-      const found = allProducts.find((p) => p._id === id);
-      if (found) {
-        setProduct(found);
-        const images = [found.pimage1, found.pimage2, found.pimage3].filter(Boolean);
-        if (images.length > 0) setSelectedImage(0);
-        // Related products from same seller (only active products)
-        const related = allProducts.filter(
-          (p) => p._id !== id && 
-                 p.pstatus === "active" &&
-                 (p.sellerid?._id === found.sellerid?._id || p.sellerid === found.sellerid)
-        ).slice(0, 4);
-        setRelatedProducts(related);
-
-        // Check if user has purchased this product
-        const token = localStorage.getItem("token");
-        const loginType = localStorage.getItem("loginType");
-        if (token && (loginType === "user" || loginType === "google") && userOrderedProducts.length > 0) {
-          const hasPurchased = userOrderedProducts.some(p => p._id === found._id);
-          setHasPurchasedProduct(hasPurchased);
-        }
-      }
+    if (product && product.catid) {
+      const categoryId = product.catid._id || product.catid;
+      dispatch(fetchRelatedProducts({ productId: product._id, catId: categoryId }));
     }
-  }, [allProducts, id, userOrderedProducts]);
+  }, [dispatch, product?._id, product?.catid]);
 
   // Increment views when detail page is opened (also update Redux for badges)
   // Ensure view is only incremented once per page load (per mount)

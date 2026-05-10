@@ -35,12 +35,18 @@ const Home = memo(() => {
   // Get user ID from user object
   const userId = user?.data?._id || user?._id || null;
 
-  // Fetch trending products and all products on mount
+  // Fetch data only if not already in store
   useEffect(() => {
-    dispatch(fetchTrendingProducts());
-    dispatch(fetchLatestProducts());
-    dispatch(fetchApprovedReviews());
-  }, [dispatch]);
+    if (!trendingProducts || trendingProducts.length === 0) {
+      dispatch(fetchTrendingProducts());
+    }
+    if (!latestProducts || latestProducts.length === 0) {
+      dispatch(fetchLatestProducts());
+    }
+    if (!approvedReviews || approvedReviews.length === 0) {
+      dispatch(fetchApprovedReviews());
+    }
+  }, [dispatch, trendingProducts?.length, latestProducts?.length, approvedReviews?.length]);
 
   // Fetch "For You" products if user is logged in
   useEffect(() => {

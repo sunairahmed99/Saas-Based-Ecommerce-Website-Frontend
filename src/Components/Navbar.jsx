@@ -51,9 +51,13 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    // Fetch categories/subcategories for dynamic menu (public routes)
-    dispatch(fetchcategories());
-    dispatch(fetchsubcategories());
+    // Fetch categories/subcategories for dynamic menu only if not loaded
+    if (!categories || categories.length === 0) {
+      dispatch(fetchcategories());
+    }
+    if (!subcategories || subcategories.length === 0) {
+      dispatch(fetchsubcategories());
+    }
 
     const token = localStorage.getItem("token");
     const loginType = localStorage.getItem("loginType");

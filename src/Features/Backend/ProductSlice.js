@@ -16,6 +16,18 @@ export const fetchproducts = createAsyncThunk(
   }
 );
 
+export const fetchRelatedProducts = createAsyncThunk(
+  "products/fetchRelatedProducts",
+  async ({ productId, catId }, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${API_URL}/related`, { params: { productId, catId } });
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(err?.message || "Something went wrong");
+    }
+  }
+);
+
 export const fetchLatestProducts = createAsyncThunk(
   "products/fetchLatestProducts",
   async (_, { rejectWithValue }) => {
@@ -293,6 +305,8 @@ const ProductSlice = createSlice({
     latestProducts: [],
     latestLoading: false,
     latestError: null,
+    relatedProducts: [],
+    relatedLoading: false,
     trendingProducts: [],
     trendingLoading: false,
     trendingError: null,
@@ -504,6 +518,16 @@ const ProductSlice = createSlice({
         state.latestLoading = false;
         state.latestError = action.payload;
       })
+      .addCase(fetchRelatedProducts.pending, (state) => {
+        state.relatedLoading = true;
+      })
+      .addCase(fetchRelatedProducts.fulfilled, (state, action) => {
+        state.relatedLoading = false;
+        state.relatedProducts = action.payload;
+      })
+      .addCase(fetchRelatedProducts.rejected, (state) => {
+        state.relatedLoading = false;
+      })
       .addCase(toggleProductFeatured.fulfilled, (state, action) => {
         const index = state.products.findIndex(p => p._id === action.payload._id);
         if (index !== -1) {
@@ -542,3 +566,5 @@ export const selectFeaturedProducts = (state) => state.products.featuredProducts
 export const selectLatestProducts = (state) => state.products.latestProducts;
 export const selectFeaturedLoading = (state) => state.products.featuredLoading;
 export const selectLatestLoading = (state) => state.products.latestLoading;
+export const selectRelatedProducts = (state) => state.products.relatedProducts;
+export const selectRelatedLoading = (state) => state.products.relatedLoading;

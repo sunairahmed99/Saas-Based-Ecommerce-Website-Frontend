@@ -10,10 +10,12 @@ const FeaturedSellers = () => {
   const loading = useSelector(selectTopPerformingLoading);
   const scrollRef = useRef(null);
 
-  // Fetch top performing sellers on mount
+  // Fetch top performing sellers only if not loaded
   useEffect(() => {
-    dispatch(fetchTopPerformingSellers());
-  }, [dispatch]);
+    if (!topPerformingSellers || topPerformingSellers.length === 0) {
+      dispatch(fetchTopPerformingSellers());
+    }
+  }, [dispatch, topPerformingSellers?.length]);
 
   // Use top performing sellers (they are already filtered for active status)
   const featuredSellers = topPerformingSellers || [];
