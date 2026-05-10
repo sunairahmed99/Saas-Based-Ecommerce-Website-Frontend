@@ -18,11 +18,11 @@ const SplashScreen = ({ onComplete }) => {
         const loadData = async () => {
             const startTime = Date.now();
             
-            // Safety timeout to ensure user is never stuck for more than 3 seconds
-            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+            // Safety timeout to ensure user is never stuck for more than 15 seconds
+            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
 
             try {
-                setStatusText('Loading experience...');
+                setStatusText('Preparing your shopping experience...');
                 
                 // Essential fetches
                 const apiPromises = [
@@ -36,7 +36,7 @@ const SplashScreen = ({ onComplete }) => {
                     dispatch(fetchHomeFlashDeals())
                 ];
 
-                // Race the APIs against a 3s timeout
+                // Wait for all APIs to finish, or 15s max
                 await Promise.race([
                     Promise.all(apiPromises),
                     timeoutPromise
