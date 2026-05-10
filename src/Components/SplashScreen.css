@@ -1,0 +1,161 @@
+/* ── Premium Splash Screen ── */
+.splash-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    overflow: hidden;
+}
+
+/* Multi-layered animated background */
+.splash-bg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.splash-circle {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    animation: moveCircle 20s infinite alternate;
+}
+
+.circle-1 {
+    width: 400px;
+    height: 400px;
+    background: #00eaff;
+    top: -100px;
+    left: -100px;
+    animation-duration: 15s;
+}
+
+.circle-2 {
+    width: 500px;
+    height: 500px;
+    background: #008cff;
+    bottom: -150px;
+    right: -150px;
+    animation-duration: 25s;
+}
+
+@keyframes moveCircle {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(100px, 100px) scale(1.2); }
+}
+
+/* Glass Card for Content */
+.splash-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    padding: 60px 80px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.splash-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+    animation: shineCard 3s infinite;
+}
+
+@keyframes shineCard {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Logo Section */
+.splash-logo-wrapper {
+    margin-bottom: 50px;
+    text-align: center;
+}
+
+.splash-logo {
+    font-size: 5rem;
+    font-weight: 900;
+    background: linear-gradient(to bottom, #ffffff 30%, #00eaff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -3px;
+    margin: 0;
+    line-height: 1;
+}
+
+.splash-tagline {
+    color: #00eaff;
+    font-size: 1.1rem;
+    margin-top: 15px;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    font-weight: 300;
+    opacity: 0.8;
+}
+
+/* Loader Section */
+.splash-loader-container {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.splash-progress-track {
+    width: 100%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    position: relative;
+}
+
+.splash-progress-bar {
+    position: absolute;
+    height: 100%;
+    background: #00eaff;
+    box-shadow: 0 0 15px #00eaff;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.splash-status-text {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    text-transform: capitalize;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .splash-card {
+        padding: 40px 30px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+    }
+    .splash-logo { font-size: 3.5rem; }
+    .splash-tagline { font-size: 0.8rem; letter-spacing: 4px; }
+    .splash-loader-container { width: 200px; }
+}

@@ -30,13 +30,20 @@ import LiveChat from "./Components/LiveChat";
 import { useLocation } from "react-router-dom";
 import ScrollToTop from "./Components/ScrollToTop";
 import { ToastContainer } from "./Components/Toast";
+import SplashScreen from "./Components/SplashScreen";
+import { useState } from "react";
 
 const AppContent = () => {
+  const [isSplashComplete, setIsSplashComplete] = useState(false);
   const location = useLocation();
   const hideChatWidgets = 
     location.pathname.startsWith("/admin") || 
     location.pathname.startsWith("/seller-admin") || 
     location.pathname.startsWith("/seller-chat");
+
+  if (!isSplashComplete) {
+    return <SplashScreen onComplete={() => setIsSplashComplete(true)} />;
+  }
 
   return (
     <div className="App">
