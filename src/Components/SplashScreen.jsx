@@ -17,10 +17,15 @@ const SplashScreen = ({ onComplete }) => {
     useEffect(() => {
         const loadData = async () => {
             const startTime = Date.now();
+            
+            // Safety timeout to ensure user is never stuck for more than 3 seconds
+            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+
             try {
-                // Essential fetches for Home Page fold
                 setStatusText('Loading experience...');
-                await Promise.all([
+                
+                // Essential fetches
+                const apiPromises = [
                     dispatch(fetchcategories()),
                     dispatch(fetchTrendingCategories(10)),
                     dispatch(fetchsubcategories()),
@@ -28,20 +33,25 @@ const SplashScreen = ({ onComplete }) => {
                     dispatch(fetchTrendingProducts()),
                     dispatch(fetchFeaturedProducts()),
                     dispatch(fetchHomeFlashDeals())
+                ];
+
+                // Race the APIs against a 3s timeout
+                await Promise.race([
+                    Promise.all(apiPromises),
+                    timeoutPromise
                 ]);
                 
                 setProgress(100);
                 setStatusText('Welcome!');
 
-                // Minimum stay of 800ms to ensure branding but keep it snappy
                 const elapsedTime = Date.now() - startTime;
-                const remainingTime = Math.max(0, 800 - elapsedTime);
+                const remainingTime = Math.max(0, 500 - elapsedTime); // Min stay 500ms
 
                 setTimeout(() => {
                     setIsVisible(false);
                     setTimeout(() => {
                         if (onComplete) onComplete();
-                    }, 600); // Snappier exit
+                    }, 400); 
                 }, remainingTime);
 
             } catch (error) {
