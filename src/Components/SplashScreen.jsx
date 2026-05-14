@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
-import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
+import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts, fetchproducts } from '../Features/Backend/ProductSlice';
 import { fetchHomeFlashDeals } from '../Features/Backend/FlashDealSlice';
 import { fetchsubcategories } from '../Features/Backend/SubCategorySlice';
 import { fetchBanners } from '../Features/Backend/BannerSlice';
@@ -27,14 +27,28 @@ const SplashScreen = ({ onComplete }) => {
             try {
                 if (isMounted) setStatusText('Initializing secure connection...');
                 
-                // Simulation of progress
+                // Simulation of smooth progress over 15 seconds
                 const progressInterval = setInterval(() => {
                     if (!isMounted) {
                         clearInterval(progressInterval);
                         return;
                     }
-                    setProgress(prev => (prev >= 98 ? prev : prev + 1));
-                }, 140);
+                    const elapsed = Date.now() - startTime;
+                    const newProgress = Math.min(100, (elapsed / minStayTime) * 100);
+                    setProgress(newProgress);
+
+                    // Update status text based on progress
+                    if (newProgress < 20) setStatusText('Initializing secure connection...');
+                    else if (newProgress < 40) setStatusText('Fetching store categories...');
+                    else if (newProgress < 60) setStatusText('Loading trending products...');
+                    else if (newProgress < 80) setStatusText('Setting up your experience...');
+                    else if (newProgress < 99) setStatusText('Finalizing...');
+                    else setStatusText('Ready!');
+
+                    if (elapsed >= minStayTime) {
+                        clearInterval(progressInterval);
+                    }
+                }, 50);
 
                 // Essential fetches with unwrap() to ensure we wait for completion
                 const safeFetch = async (thunk) => {
@@ -58,27 +72,23 @@ const SplashScreen = ({ onComplete }) => {
                     safeFetch(fetchproducts())
                 ];
 
-                // Wait for APIs or timeout
-                await Promise.race([
-                    Promise.all(apiPromises),
-                    timeoutPromise
+                // Wait for APIs and the full 15 seconds
+                await Promise.all([
+                    ...apiPromises,
+                    new Promise(resolve => setTimeout(resolve, minStayTime))
                 ]);
                 
-                clearInterval(progressInterval);
                 if (isMounted) {
                     setProgress(100);
                     setStatusText('Almost there...');
                 }
-
-                const elapsedTime = Date.now() - startTime;
-                const remainingTime = Math.max(0, minStayTime - elapsedTime);
 
                 setTimeout(() => {
                     if (isMounted) setIsVisible(false);
                     setTimeout(() => {
                         if (isMounted && onComplete) onComplete();
                     }, 800); 
-                }, remainingTime);
+                }, 500); // Small buffer after 100% progress
 
             } catch (error) {
                 console.error('Critical Splash Error:', error);

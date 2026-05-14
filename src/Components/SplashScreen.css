@@ -94,12 +94,12 @@
 }
 
 .splash-logo {
-    font-size: 5rem;
+    font-size: 3.5rem;
     font-weight: 900;
     background: linear-gradient(to bottom, #ffffff 30%, #00eaff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: -3px;
+    letter-spacing: -2px;
     margin: 0;
     line-height: 1;
 }
@@ -136,14 +136,16 @@
     height: 100%;
     background: #00eaff;
     box-shadow: 0 0 15px #00eaff;
-    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.1s linear;
 }
 
 .splash-status-text {
     color: rgba(255, 255, 255, 0.5);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     letter-spacing: 1px;
     text-transform: capitalize;
+    white-space: nowrap;
+    text-align: center;
 }
 
 /* Mobile Optimizations */
@@ -155,7 +157,7 @@
         box-shadow: none;
         backdrop-filter: none;
     }
-    .splash-logo { font-size: 3.5rem; }
-    .splash-tagline { font-size: 0.8rem; letter-spacing: 4px; }
-    .splash-loader-container { width: 200px; }
+    .splash-logo { font-size: 2.2rem; }
+    .splash-tagline { font-size: 0.75rem; letter-spacing: 4px; }
+    .splash-loader-container { width: 280px; }
 }
