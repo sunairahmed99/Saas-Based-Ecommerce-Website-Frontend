@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
-import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts, fetchproducts } from '../Features/Backend/ProductSlice';
+import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
 import { fetchHomeFlashDeals } from '../Features/Backend/FlashDealSlice';
-import { fetchsubcategories } from '../Features/Backend/SubCategorySlice';
 import { fetchBanners } from '../Features/Backend/BannerSlice';
+import { fetchTopPerformingSellers } from '../Features/Backend/SellerSlice';
+import { fetchActiveBoosts } from '../Features/Backend/ProductBoostSlice';
+import { fetchApprovedReviews } from '../Features/Backend/ReviewSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import './SplashScreen.css';
 
@@ -63,13 +65,14 @@ const SplashScreen = ({ onComplete }) => {
                 const apiPromises = [
                     safeFetch(fetchcategories()),
                     safeFetch(fetchTrendingCategories(10)),
-                    safeFetch(fetchsubcategories()),
                     safeFetch(fetchBanners()),
                     safeFetch(fetchLatestProducts()),
                     safeFetch(fetchTrendingProducts()),
                     safeFetch(fetchFeaturedProducts()),
                     safeFetch(fetchHomeFlashDeals()),
-                    safeFetch(fetchproducts())
+                    safeFetch(fetchTopPerformingSellers()),
+                    safeFetch(fetchActiveBoosts()),
+                    safeFetch(fetchApprovedReviews())
                 ];
 
                 // Wait for APIs and the full 15 seconds
