@@ -43,10 +43,12 @@ const HeroBanner = () => {
   // Use dynamic banners if available, otherwise use static banners
   const slides = dynamicBanners && dynamicBanners.length > 0 ? dynamicBanners : staticSlides;
 
-  // Fetch dynamic banners on component mount
+  // Fetch dynamic banners only if not already loaded (SplashScreen pre-fetches)
   useEffect(() => {
-    dispatch(fetchBanners());
-  }, [dispatch]);
+    if (!dynamicBanners || dynamicBanners.length === 0) {
+      dispatch(fetchBanners());
+    }
+  }, [dispatch, dynamicBanners?.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {

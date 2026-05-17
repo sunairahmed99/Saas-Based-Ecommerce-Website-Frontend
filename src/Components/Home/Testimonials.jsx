@@ -15,9 +15,12 @@ const Testimonials = () => {
     "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=200",
   ];
 
+  // Only fetch if not already loaded (SplashScreen pre-fetches)
   useEffect(() => {
-    dispatch(fetchApprovedReviews());
-  }, [dispatch]);
+    if (!approved || approved.length === 0) {
+      dispatch(fetchApprovedReviews());
+    }
+  }, [dispatch, approved?.length]);
 
   const scroll = (direction) => {
     if (scrollRef.current) {

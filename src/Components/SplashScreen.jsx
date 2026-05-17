@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
 import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
@@ -10,99 +10,83 @@ import { fetchApprovedReviews } from '../Features/Backend/ReviewSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import './SplashScreen.css';
 
+const NAVIGATE_TIME = 15000; // Always navigate at exactly 15 seconds
+const PROGRESS_DURATION = 16000; // Progress bar fills over 16 seconds
+
 const SplashScreen = ({ onComplete }) => {
     const dispatch = useDispatch();
     const [progress, setProgress] = useState(0);
     const [statusText, setStatusText] = useState('Initializing...');
     const [isVisible, setIsVisible] = useState(true);
+    const isMountedRef = useRef(true);
 
     useEffect(() => {
-        let isMounted = true;
-        
-        const loadData = async () => {
-            const startTime = Date.now();
-            const minStayTime = 15000; // 15 seconds
-            
-            // Safety timeout
-            const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 20000));
+        isMountedRef.current = true;
+        const startTime = Date.now();
 
-            try {
-                if (isMounted) setStatusText('Initializing secure connection...');
-                
-                // Simulation of smooth progress over 15 seconds
-                const progressInterval = setInterval(() => {
-                    if (!isMounted) {
-                        clearInterval(progressInterval);
-                        return;
-                    }
-                    const elapsed = Date.now() - startTime;
-                    const newProgress = Math.min(100, (elapsed / minStayTime) * 100);
-                    setProgress(newProgress);
-
-                    // Update status text based on progress
-                    if (newProgress < 20) setStatusText('Initializing secure connection...');
-                    else if (newProgress < 40) setStatusText('Fetching store categories...');
-                    else if (newProgress < 60) setStatusText('Loading trending products...');
-                    else if (newProgress < 80) setStatusText('Setting up your experience...');
-                    else if (newProgress < 99) setStatusText('Finalizing...');
-                    else setStatusText('Ready!');
-
-                    if (elapsed >= minStayTime) {
-                        clearInterval(progressInterval);
-                    }
-                }, 50);
-
-                // Essential fetches with unwrap() to ensure we wait for completion
-                const safeFetch = async (thunk) => {
-                    try {
-                        await dispatch(thunk).unwrap();
-                    } catch (e) {
-                        console.warn('Pre-fetch non-critical failure:', e);
-                        // We don't crash the whole splash for one failure
-                    }
-                };
-
-                const apiPromises = [
-                    safeFetch(fetchcategories()),
-                    safeFetch(fetchTrendingCategories(10)),
-                    safeFetch(fetchBanners()),
-                    safeFetch(fetchLatestProducts()),
-                    safeFetch(fetchTrendingProducts()),
-                    safeFetch(fetchFeaturedProducts()),
-                    safeFetch(fetchHomeFlashDeals()),
-                    safeFetch(fetchTopPerformingSellers()),
-                    safeFetch(fetchActiveBoosts()),
-                    safeFetch(fetchApprovedReviews())
-                ];
-
-                // Wait for APIs and the full 15 seconds
-                await Promise.all([
-                    ...apiPromises,
-                    new Promise(resolve => setTimeout(resolve, minStayTime))
-                ]);
-                
-                if (isMounted) {
-                    setProgress(100);
-                    setStatusText('Almost there...');
-                }
-
-                setTimeout(() => {
-                    if (isMounted) setIsVisible(false);
-                    setTimeout(() => {
-                        if (isMounted && onComplete) onComplete();
-                    }, 800); 
-                }, 500); // Small buffer after 100% progress
-
-            } catch (error) {
-                console.error('Critical Splash Error:', error);
-                setTimeout(() => {
-                    if (isMounted && onComplete) onComplete();
-                }, 3000);
+        // ─── 1. PROGRESS BAR: smooth fill over 16 seconds (visual only) ───
+        const progressInterval = setInterval(() => {
+            if (!isMountedRef.current) {
+                clearInterval(progressInterval);
+                return;
             }
+            const elapsed = Date.now() - startTime;
+            const newProgress = Math.min(100, (elapsed / PROGRESS_DURATION) * 100);
+            setProgress(newProgress);
+
+            // Update status text based on progress
+            if (newProgress < 15) setStatusText('Initializing secure connection...');
+            else if (newProgress < 30) setStatusText('Fetching store categories...');
+            else if (newProgress < 50) setStatusText('Loading trending products...');
+            else if (newProgress < 70) setStatusText('Setting up your experience...');
+            else if (newProgress < 90) setStatusText('Finalizing...');
+            else setStatusText('Ready!');
+
+            if (elapsed >= PROGRESS_DURATION) {
+                clearInterval(progressInterval);
+            }
+        }, 50);
+
+        // ─── 2. API CALLS: fire all simultaneously, fire-and-forget ───
+        const safeFetch = (thunk) => {
+            dispatch(thunk).unwrap().catch((e) => {
+                console.warn('Pre-fetch non-critical failure:', e);
+            });
         };
 
-        loadData();
-        return () => { isMounted = false; };
+        safeFetch(fetchcategories());
+        safeFetch(fetchTrendingCategories(10));
+        safeFetch(fetchBanners());
+        safeFetch(fetchLatestProducts());
+        safeFetch(fetchTrendingProducts());
+        safeFetch(fetchFeaturedProducts());
+        safeFetch(fetchHomeFlashDeals());
+        safeFetch(fetchTopPerformingSellers());
+        safeFetch(fetchActiveBoosts());
+        safeFetch(fetchApprovedReviews());
+
+        // ─── 3. NAVIGATION: always at exactly 15 seconds (constant) ───
+        const navigationTimer = setTimeout(() => {
+            if (!isMountedRef.current) return;
+            clearInterval(progressInterval);
+            setProgress(100);
+            setStatusText('Ready!');
+
+            // Small visual buffer then exit
+            setTimeout(() => {
+                if (!isMountedRef.current) return;
+                setIsVisible(false);
+                setTimeout(() => {
+                    if (isMountedRef.current && onComplete) onComplete();
+                }, 600);
+            }, 400);
+        }, NAVIGATE_TIME);
+
+        return () => {
+            isMountedRef.current = false;
+            clearInterval(progressInterval);
+            clearTimeout(navigationTimer);
+        };
     }, [dispatch, onComplete]);
 
     return (

@@ -23,10 +23,15 @@ const BoostedProducts = () => {
   const [processingIds, setProcessingIds] = useState(new Set());
   const [toast, setToast] = useState(null);
 
+  // Only fetch if not already loaded (SplashScreen pre-fetches)
   useEffect(() => {
-    dispatch(fetchFeaturedProducts());
-    dispatch(fetchActiveBoosts());
-  }, [dispatch]);
+    if (!featured || featured.length === 0) {
+      dispatch(fetchFeaturedProducts());
+    }
+    if (!activeBoosts || activeBoosts.length === 0) {
+      dispatch(fetchActiveBoosts());
+    }
+  }, [dispatch, featured?.length, activeBoosts?.length]);
 
   useEffect(() => {
     const handleResize = () => {
