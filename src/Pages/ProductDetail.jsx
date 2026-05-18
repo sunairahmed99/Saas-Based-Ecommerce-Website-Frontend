@@ -465,7 +465,8 @@ function ProductDetail() {
           .main-image-wrapper img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            background: rgba(0,0,0,0.15);
           }
           .thumbnail-row {
             display: flex;
@@ -479,7 +480,7 @@ function ProductDetail() {
             cursor: pointer;
             border: 3px solid transparent;
             transition: border-color 0.2s, transform 0.2s;
-            background: rgba(255,255,255,0.06);
+            background: rgba(0,0,0,0.15);
           }
           .thumbnail.active {
             border-color: #00eaff;
@@ -492,7 +493,7 @@ function ProductDetail() {
           .thumbnail img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
           }
           .product-info-section {
             display: flex;
@@ -1498,7 +1499,7 @@ function ProductDetail() {
             <div className="main-image-wrapper">
               <img src={mainImage} alt={product.pname} />
             </div>
-            {images.length > 1 && (
+            {images.length >= 1 && (
               <div className="thumbnail-row">
                 {images.map((img, idx) => (
                   <div
