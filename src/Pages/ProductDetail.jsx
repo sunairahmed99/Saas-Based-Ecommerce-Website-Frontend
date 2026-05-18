@@ -125,7 +125,7 @@ function ProductDetail() {
       };
       fetchProductDetails();
     }
-  }, [id, deviceId, dispatch, allProducts, user]);
+  }, [id]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
 
