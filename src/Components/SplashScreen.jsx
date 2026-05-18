@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
-import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts } from '../Features/Backend/ProductSlice';
+import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts, fetchproducts } from '../Features/Backend/ProductSlice';
 import { fetchHomeFlashDeals } from '../Features/Backend/FlashDealSlice';
 import { fetchBanners } from '../Features/Backend/BannerSlice';
 import { fetchTopPerformingSellers } from '../Features/Backend/SellerSlice';
@@ -60,6 +60,7 @@ const SplashScreen = ({ onComplete }) => {
         safeFetch(fetchLatestProducts());
         safeFetch(fetchTrendingProducts());
         safeFetch(fetchFeaturedProducts());
+        safeFetch(fetchproducts()); // Pre-fetch full product catalog for instant Shop page loads!
         safeFetch(fetchHomeFlashDeals());
         safeFetch(fetchTopPerformingSellers());
         safeFetch(fetchActiveBoosts());

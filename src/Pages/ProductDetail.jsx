@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image } from "react-bootstrap";
 import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup } from "react-icons/fa";
@@ -23,8 +24,6 @@ function ProductDetail() {
   const allProducts = useSelector(selectProducts) || [];
   const loading = useSelector(selectProductsLoading);
 
-  const [product, setProduct] = useState(null);
-  const [localLoading, setLocalLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
@@ -63,6 +62,42 @@ function ProductDetail() {
 
   const relatedProducts = useSelector(selectRelatedProducts) || [];
 
+  // Find preloaded catalog details from Redux cache (pre-fetched on splash screen)
+  const preloadedProduct = allProducts.find((p) => p._id === id);
+
+  // High-performance caching and fetching using TanStack Query
+  const { data: product, isLoading, refetch } = useQuery({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const userId = user && user._id ? user._id : localStorage.getItem("userId") || undefined;
+      const res = await axios.get(
+        `${API_BASE_URL}/product/view/${id}`,
+        { 
+          params: { 
+            device_id: deviceId,
+            user_id: userId 
+          } 
+        }
+      );
+      
+      const updated = res?.data?.data;
+      if (updated) {
+        if (updated._id && typeof updated.views === "number") {
+          dispatch(setProductViews({ id: updated._id, views: updated.views }));
+        }
+        trackViewedProduct(updated._id, updated.category || updated.pcategory);
+      }
+      return updated;
+    },
+    // Seed the UI instantly with pre-fetched Redux data
+    initialData: preloadedProduct || undefined,
+    initialDataUpdatedAt: preloadedProduct ? Date.now() - 60000 : undefined, // Forces a quiet background refresh
+    staleTime: 30000,
+  });
+
+  // Only show the loading spinner if we have absolutely no cached product data
+  const localLoading = isLoading && !product;
+
   useEffect(() => {
     // Only fetch essential data, NOT all products
     const token = localStorage.getItem("token");
@@ -81,51 +116,6 @@ function ProductDetail() {
       dispatch(fetchRelatedProducts({ productId: product._id, catId: categoryId }));
     }
   }, [dispatch, product?._id, product?.catid]);
-
-  // Increment views when detail page is opened (also update Redux for badges)
-  // Ensure view is only incremented once per page load (per mount)
-  useEffect(() => {
-    if (id) {
-      const fetchProductDetails = async () => {
-        try {
-          setLocalLoading(true);
-          const userId =
-            user && user._id
-              ? user._id
-              : localStorage.getItem("userId") || undefined;
-          const res = await axios.get(
-            `${API_BASE_URL}/product/view/${id}`,
-            { 
-              params: { 
-                device_id: deviceId,
-                user_id: userId 
-              } 
-            }
-          );
-          if (res?.data?.data) {
-            const updated = res.data.data;
-            setProduct(updated);
-            if (updated._id && typeof updated.views === "number") {
-              dispatch(setProductViews({ id: updated._id, views: updated.views }));
-            }
-
-            // Track user behavior for recommendations
-            trackViewedProduct(updated._id, updated.category || updated.pcategory);
-          }
-        } catch (err) {
-          // If we don't have product data and the view request failed,
-          // try to find the product in the Redux store as fallback
-          const found = allProducts.find((p) => p._id === id);
-          if (found) {
-            setProduct(found);
-          }
-        } finally {
-          setLocalLoading(false);
-        }
-      };
-      fetchProductDetails();
-    }
-  }, [id]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
 
 
@@ -383,6 +373,7 @@ function ProductDetail() {
       setShowReviewForm(false);
       setReviewRating(5);
       setReviewMessage("");
+      refetch(); // Instantly reload product reviews/details in cache
     }
   };
 
