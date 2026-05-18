@@ -579,8 +579,22 @@ const Shop = memo(() => {
 
             {/* Products Grid */}
             {loading ? (
-              <div className="no-products">
-                <p>Loading products...</p>
+              <div className="products-grid">
+                {[...Array(8)].map((_, index) => (
+                  <div key={index} className="product-card skeleton-card">
+                    <div className="product-image-wrapper skeleton-image-wrapper">
+                      <div className="skeleton-pulse skeleton-image"></div>
+                    </div>
+                    <div className="product-info">
+                      <div className="skeleton-pulse skeleton-category"></div>
+                      <div className="skeleton-pulse skeleton-title"></div>
+                      <div className="skeleton-pulse skeleton-seller"></div>
+                      <div className="skeleton-pulse skeleton-rating"></div>
+                      <div className="skeleton-pulse skeleton-price"></div>
+                      <div className="skeleton-pulse skeleton-button"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : paginatedProducts.length > 0 ? (
               <div className="products-grid">
@@ -712,6 +726,66 @@ const Shop = memo(() => {
       </div>
 
       <style>{`
+        /* Skeleton Pulse Animation */
+        .skeleton-card {
+          pointer-events: none;
+          background: rgba(255, 255, 255, 0.04) !important;
+          border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
+        .skeleton-pulse {
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+        }
+        @keyframes skeleton-loading {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .skeleton-image {
+          width: 100%;
+          height: 100%;
+          border-radius: 12px;
+        }
+        .skeleton-image-wrapper {
+          aspect-ratio: 1;
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .skeleton-category {
+          height: 12px;
+          width: 40%;
+          margin-bottom: 0.8rem;
+          margin-top: 0.5rem;
+        }
+        .skeleton-title {
+          height: 18px;
+          width: 85%;
+          margin-bottom: 0.8rem;
+        }
+        .skeleton-seller {
+          height: 10px;
+          width: 50%;
+          margin-bottom: 0.8rem;
+        }
+        .skeleton-rating {
+          height: 12px;
+          width: 60%;
+          margin-bottom: 0.8rem;
+        }
+        .skeleton-price {
+          height: 16px;
+          width: 45%;
+          margin-bottom: 0.8rem;
+        }
+        .skeleton-button {
+          height: 35px;
+          width: 100%;
+          border-radius: 8px;
+          margin-top: 0.5rem;
+        }
+
         .shop-page {
           background: linear-gradient(128deg, #1e2027 0%, #334466 100%);
           min-height: 100vh;

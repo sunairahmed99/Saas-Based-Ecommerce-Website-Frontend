@@ -143,14 +143,30 @@ function ProductDetail() {
     return (
       <>
         <Navbar />
-        <motion.div className="product-detail-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-          <motion.div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <div className="custom-loader"></div>
-            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ fontSize: '1.1rem', fontWeight: '500', color: '#00eaff' }}>
-              Optimizing Experience...
-            </motion.div>
-          </motion.div>
-        </motion.div>
+        <div className="product-detail-page">
+          <div className="product-detail-container">
+            <div className="product-images-section">
+              <div className="main-image-wrapper skeleton-card">
+                <div className="skeleton-pulse" style={{ width: '100%', height: '100%' }}></div>
+              </div>
+              <div className="thumbnail-row">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="thumbnail skeleton-card" style={{ border: 'none' }}>
+                    <div className="skeleton-pulse" style={{ width: '100%', height: '100%' }}></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="product-info-section" style={{ gap: '1rem' }}>
+              <div className="skeleton-pulse" style={{ height: '32px', width: '80%', borderRadius: '8px' }}></div>
+              <div className="skeleton-pulse" style={{ height: '18px', width: '30%', borderRadius: '4px' }}></div>
+              <div className="skeleton-pulse" style={{ height: '24px', width: '40%', borderRadius: '6px', margin: '0.5rem 0' }}></div>
+              <div className="skeleton-pulse" style={{ height: '80px', width: '100%', borderRadius: '12px' }}></div>
+              <div className="skeleton-pulse" style={{ height: '100px', width: '100%', borderRadius: '12px', marginTop: '1rem' }}></div>
+              <div className="skeleton-pulse" style={{ height: '45px', width: '50%', borderRadius: '10px', marginTop: '1rem' }}></div>
+            </div>
+          </div>
+        </div>
         <Footer />
         <style>{`
           .product-detail-page {
@@ -159,16 +175,53 @@ function ProductDetail() {
             padding: 2rem 2vw 4vw 2vw;
             color: #fff;
           }
-          .custom-loader {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(0, 234, 255, 0.1);
-            border-top-color: #00eaff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+          .product-detail-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 4rem;
           }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
+          .product-images-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+          .main-image-wrapper {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 20px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.08);
+          }
+          .thumbnail-row {
+            display: flex;
+            gap: 1rem;
+          }
+          .thumbnail {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.06);
+          }
+          .product-info-section {
+            display: flex;
+            flex-direction: column;
+          }
+          .skeleton-card {
+            pointer-events: none;
+            background: rgba(255, 255, 255, 0.04) !important;
+          }
+          .skeleton-pulse {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+          }
+          @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
           }
         `}</style>
       </>
