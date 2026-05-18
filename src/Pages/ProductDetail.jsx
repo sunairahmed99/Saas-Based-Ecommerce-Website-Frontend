@@ -24,6 +24,7 @@ function ProductDetail() {
   const loading = useSelector(selectProductsLoading);
 
   const [product, setProduct] = useState(null);
+  const [localLoading, setLocalLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
@@ -83,11 +84,11 @@ function ProductDetail() {
 
   // Increment views when detail page is opened (also update Redux for badges)
   // Ensure view is only incremented once per page load (per mount)
-  const [viewsIncremented, setViewsIncremented] = useState(false);
   useEffect(() => {
-    if (!viewsIncremented && id) {
-      const incrementViews = async () => {
+    if (id) {
+      const fetchProductDetails = async () => {
         try {
+          setLocalLoading(true);
           const userId =
             user && user._id
               ? user._id
@@ -112,25 +113,19 @@ function ProductDetail() {
             trackViewedProduct(updated._id, updated.category || updated.pcategory);
           }
         } catch (err) {
-         
-          // Continue with the page even if view increment fails
-          // The product data should already be loaded from the Redux store
-         
-
           // If we don't have product data and the view request failed,
           // try to find the product in the Redux store as fallback
-          if (!product) {
-            const found = allProducts.find((p) => p._id === id);
-            if (found) {
-              setProduct(found);
-            }
+          const found = allProducts.find((p) => p._id === id);
+          if (found) {
+            setProduct(found);
           }
+        } finally {
+          setLocalLoading(false);
         }
       };
-      incrementViews();
-      setViewsIncremented(true);
+      fetchProductDetails();
     }
-  }, [id, viewsIncremented, deviceId, dispatch, product, allProducts]);
+  }, [id, deviceId, dispatch, allProducts, user]);
 
 
 
@@ -144,7 +139,7 @@ function ProductDetail() {
   }, [toast]);
 
   // Only show loader if we don't have the product data yet
-  if (!product && loading) {
+  if (localLoading) {
     return (
       <>
         <Navbar />
@@ -203,7 +198,10 @@ function ProductDetail() {
     );
   }
 
-  const images = product ? [product.pimage1, product.pimage2, product.pimage3].filter(Boolean) : [];
+  const images = product 
+    ? [product.pimage1, product.pimage2, product.pimage3]
+        .filter(img => img && typeof img === 'string' && img.trim() !== '' && img !== 'null' && img !== 'undefined')
+    : [];
   const mainImage = images[selectedImage] || images[0] || "https://via.placeholder.com/600?text=No+Image";
   const sellerName = product?.sellerid?.sname || product?.sellerid?.name || product?.sellerid || "Unknown Seller";
   const categoryName = product?.catid?.name || product?.catid?.cname || product?.catid || "N/A";
