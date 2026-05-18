@@ -457,6 +457,7 @@ const Shop = memo(() => {
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Search products"
                 />
               </div>
             </div>
@@ -472,6 +473,7 @@ const Shop = memo(() => {
                       name="category"
                       checked={selectedCategory === cat}
                       onChange={() => setSelectedCategory(cat)}
+                      aria-label={`Category: ${cat}`}
                     />
                     <span>{cat}</span>
                   </label>
@@ -490,6 +492,7 @@ const Shop = memo(() => {
                   onChange={(e) =>
                     setPriceRange([Math.min(Math.max(parseInt(e.target.value) || 1, 1), priceRange[1]), priceRange[1]])
                   }
+                  aria-label="Minimum price filter"
                 />
                 <span>to</span>
                 <input
@@ -499,6 +502,7 @@ const Shop = memo(() => {
                   onChange={(e) =>
                     setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value) || 1, priceRange[0]), 10000000)])
                   }
+                  aria-label="Maximum price filter"
                 />
               </div>
               <input
@@ -510,6 +514,7 @@ const Shop = memo(() => {
                   setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value), 1), 10000000)])
                 }
                 className="price-slider"
+                aria-label="Price range slider"
               />
             </div>
 
@@ -524,6 +529,7 @@ const Shop = memo(() => {
                       name="rating"
                       checked={minRating === rating}
                       onChange={() => setMinRating(rating)}
+                      aria-label={`Rating: ${rating} stars and above`}
                     />
                     <div className="stars">
                       {[...Array(5)].map((_, i) => (
@@ -565,8 +571,8 @@ const Shop = memo(() => {
                 <FaFilter /> Filters
               </button>
               <div className="sort-section">
-                <label>Sort by:</label>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <label htmlFor="sort-select">Sort by:</label>
+                <select id="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort products by">
                   <option value="default">Default</option>
                   <option value="views">Most Viewed</option>
                   <option value="price-low">Price: Low to High</option>
@@ -612,6 +618,7 @@ const Shop = memo(() => {
                           onClick={(e) => handleFavoriteClick(e, product.id || product._id)}
                           disabled={processingIds.has(product.id || product._id)}
                           title={isFavorite(product.id || product._id) ? "Remove from favorites" : "Add to favorites"}
+                          aria-label={isFavorite(product.id || product._id) ? "Remove from favorites" : "Add to favorites"}
                         >
                           <FaHeart />
                         </button>
