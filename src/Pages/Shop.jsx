@@ -61,40 +61,47 @@ const Shop = memo(() => {
     }
   }, [selectedCategory]);
 
+  // Fetch static lookups once on mount (only if not already loaded)
   useEffect(() => {
-    // Fetch categories, subcategories, sellers, and banners for breadcrumbs
-    dispatch(fetchcategories());
-    dispatch(fetchsubcategories());
-    dispatch(fetchSeller());
-    dispatch(fetchBanners()).then(() => {
+    if (!categories || categories.length === 0) {
+      dispatch(fetchcategories());
+    }
+    if (!subcategories || subcategories.length === 0) {
+      dispatch(fetchsubcategories());
+    }
+    if (!sellers || sellers.length === 0) {
+      dispatch(fetchSeller());
+    }
+    if (!dynamicBanners || dynamicBanners.length === 0) {
+      dispatch(fetchBanners()).then(() => {
+        setBannersLoaded(true);
+      });
+    } else {
       setBannersLoaded(true);
-    });
+    }
+  }, [dispatch, categories?.length, subcategories?.length, sellers?.length, dynamicBanners?.length]);
 
-    // Check URL parameters
+  // Handle URL search parameters and fetch products
+  useEffect(() => {
     const categoryId = searchParams.get('category');
     const subcategoryId = searchParams.get('subcategory');
     const sellerId = searchParams.get('seller');
     const searchQuery = searchParams.get('search');
 
     if (searchQuery) {
-      // Perform search
       dispatch(searchProducts(searchQuery));
     } else if (sellerId) {
-      // Fetch products by seller
       dispatch(fetchProductsBySeller(sellerId));
     } else if (subcategoryId) {
-      // Fetch products by subcategory
       dispatch(fetchProductsBySubcategory(subcategoryId));
     } else if (categoryId) {
-      // Fetch products by category
       dispatch(fetchProductsByCategory(categoryId));
     } else {
-      // Fetch all products only if not loaded
       if (!allProducts || allProducts.length === 0) {
         dispatch(fetchproducts());
       }
     }
-  }, [dispatch, searchParams]);
+  }, [dispatch, searchParams, allProducts?.length]);
 
   // Fetch favorites when user or seller is logged in
   useEffect(() => {
