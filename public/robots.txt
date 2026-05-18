@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://saas-based-ecommerce-website-fronte.vercel.app/sitemap.xml
