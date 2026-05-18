@@ -162,11 +162,11 @@ const Register = () => {
       <style>{`
         .login-bg {
           background: linear-gradient(128deg, #1e2027 0%, #334466 100%);
-          min-height: 60vh;
+          min-height: 80vh;
           padding: 40px 15px;
           display: flex;
           justify-content: center;
-          align-items: flex-start;
+          align-items: center;
         }
         .login-box {
           background: rgba(255, 255, 255, 0.1);
