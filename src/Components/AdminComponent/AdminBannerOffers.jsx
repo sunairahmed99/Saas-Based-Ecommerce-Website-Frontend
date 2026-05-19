@@ -1,23 +1,59 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Table, Button, Form, Modal, Spinner, Image } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
-import {
-  fetchOffers,
-  createOffer,
-  updateOffer,
-  deleteOffer,
-  selectOffers,
-  selectOffersLoading,
-  selectOffersError,
-} from "../../Features/Backend/OfferSlice";
+import { API_BASE_URL } from "../../config";
 
 function AdminBannerOffers() {
-  const dispatch = useDispatch();
-  const offers = useSelector(selectOffers) || [];
-  const loading = useSelector(selectOffersLoading);
-  const error = useSelector(selectOffersError);
+  const queryClient = useQueryClient();
+
+  const { data: offers = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['admin-banner-offers'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/offer/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const createOfferMutation = useMutation({
+    mutationFn: async (formData) => {
+      const res = await axios.post(`${API_BASE_URL}/offer/create`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banner-offers'] });
+    }
+  });
+
+  const updateOfferMutation = useMutation({
+    mutationFn: async ({ id, formData }) => {
+      const res = await axios.patch(`${API_BASE_URL}/offer/update/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banner-offers'] });
+    }
+  });
+
+  const deleteOfferMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/offer/delete/${id}`);
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banner-offers'] });
+    }
+  });
+
+  const isMutating = createOfferMutation.isPending || updateOfferMutation.isPending || deleteOfferMutation.isPending;
+  const error = queryError?.response?.data?.message || queryError?.message || createOfferMutation.error?.response?.data?.message || createOfferMutation.error?.message || updateOfferMutation.error?.response?.data?.message || updateOfferMutation.error?.message || deleteOfferMutation.error?.response?.data?.message || deleteOfferMutation.error?.message || null;
 
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -36,10 +72,6 @@ function AdminBannerOffers() {
   const [toast, setToast] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    dispatch(fetchOffers());
-  }, [dispatch]);
 
   // Toast effect
   useEffect(() => {
@@ -100,17 +132,17 @@ function AdminBannerOffers() {
     }
     try {
       if (editMode) {
-        await dispatch(updateOffer({ id: currentOffer._id, formData })).unwrap();
+        await updateOfferMutation.mutateAsync({ id: currentOffer._id, formData });
         setToast({ type: "success", message: "Banner offer updated" });
       } else {
-        await dispatch(createOffer(formData)).unwrap();
+        await createOfferMutation.mutateAsync(formData);
         setToast({ type: "success", message: "Banner offer created" });
       }
       setShowModal(false);
       setImageFile(null);
       setImagePreview("");
     } catch (err) {
-      setToast({ type: "danger", message: err || "Operation failed" });
+      console.error(err);
     }
   };
 
@@ -118,10 +150,10 @@ function AdminBannerOffers() {
     const confirm = window.confirm("Are you sure you want to delete this offer?");
     if (!confirm) return;
     try {
-      await dispatch(deleteOffer(id)).unwrap();
+      await deleteOfferMutation.mutateAsync(id);
       setToast({ type: "warning", message: "Banner offer deleted" });
     } catch (err) {
-      setToast({ type: "danger", message: err || "Delete failed" });
+      console.error(err);
     }
   };
 

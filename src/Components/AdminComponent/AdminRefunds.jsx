@@ -1,20 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { FaCheck, FaTimes, FaEye, FaCalendarAlt, FaUser, FaClipboardList, FaCoins, FaStore, FaTag } from 'react-icons/fa';
 import ReusablePagination from '../ReusablePagination';
 import { API_BASE_URL } from '../../config';
 import './AdminRefunds.css';
 
 const AdminRefunds = () => {
-  const dispatch = useDispatch();
-  const [refunds, setRefunds] = useState([]);
-  const [refundStats, setRefundStats] = useState({
-    totalRequests: 0,
-    pendingRequests: 0,
-    processedRequests: 0,
-    totalRefunded: 0
-  });
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
   const [selectedRefund, setSelectedRefund] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
@@ -23,89 +18,73 @@ const AdminRefunds = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    fetchRefunds();
-  }, []);
-
-  const fetchRefunds = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-
-      // Fetch refunds and stats in parallel
-      const [refundsResponse, statsResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/refund/all`, {
-          headers: {
-            'auth_token': token,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${API_BASE_URL}/refund/stats`, {
-          headers: {
-            'auth_token': token,
-            'Content-Type': 'application/json'
-          }
-        })
-      ]);
-
-      // Handle refunds data
-      if (refundsResponse.ok) {
-        const refundsData = await refundsResponse.json();
-        // Transform the data to match the expected format
-        const transformedRefunds = refundsData.data.map(refund => ({
-          _id: refund._id,
-          orderId: refund.orderId?.orderId || refund.orderId,
-          userId: {
-            name: refund.userId?.name || 'Unknown User',
-            email: refund.userId?.email || ''
-          },
-          amount: refund.refundAmount,
-          reason: refund.refundReason,
-          status: refund.status,
-          createdAt: refund.createdAt,
-          items: refund.items?.map(item => item.name) || [],
-          processedBy: refund.processedBy,
-          processedAt: refund.processedAt,
-          adminNotes: refund.adminNotes
-        }));
-        setRefunds(transformedRefunds);
-      } else {
-        console.error('Failed to fetch refunds');
-        setRefunds([]);
-      }
-
-      // Handle stats data
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        const stats = statsData.data.stats || {};
-        setRefundStats({
-          totalRequests: statsData.data.totalRequests || 0,
-          pendingRequests: statsData.data.pendingRequests || 0,
-          processedRequests: statsData.data.processedRequests || 0,
-          totalRefunded: stats.refunded?.totalAmount || 0
-        });
-      } else {
-        console.error('Failed to fetch refund stats');
-        setRefundStats({
-          totalRequests: refunds.length,
-          pendingRequests: refunds.filter(r => r.status === 'pending').length,
-          processedRequests: refunds.filter(r => r.status === 'refunded').length,
-          totalRefunded: refunds.filter(r => r.status === 'refunded').reduce((sum, r) => sum + r.amount, 0)
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching refunds:', error);
-      setRefunds([]);
-      setRefundStats({
-        totalRequests: 0,
-        pendingRequests: 0,
-        processedRequests: 0,
-        totalRefunded: 0
+  const { data: refundsData, isLoading: refundsLoading } = useQuery({
+    queryKey: ['admin-refunds'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/refund/all`, {
+        headers: { auth_token: token }
       });
-    } finally {
-      setLoading(false);
-    }
+      // Transform the data to match the expected format
+      return (res.data?.data || []).map(refund => ({
+        _id: refund._id,
+        orderId: refund.orderId?.orderId || refund.orderId,
+        userId: {
+          name: refund.userId?.name || 'Unknown User',
+          email: refund.userId?.email || ''
+        },
+        amount: refund.refundAmount,
+        reason: refund.refundReason,
+        status: refund.status,
+        createdAt: refund.createdAt,
+        items: refund.items?.map(item => item.name) || [],
+        processedBy: refund.processedBy,
+        processedAt: refund.processedAt,
+        adminNotes: refund.adminNotes
+      }));
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const refunds = refundsData || [];
+
+  const { data: refundStatsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['admin-refund-stats'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/refund/stats`, {
+        headers: { auth_token: token }
+      });
+      const stats = res.data?.data?.stats || {};
+      return {
+        totalRequests: res.data?.data?.totalRequests || 0,
+        pendingRequests: res.data?.data?.pendingRequests || 0,
+        processedRequests: res.data?.data?.processedRequests || 0,
+        totalRefunded: stats.refunded?.totalAmount || 0
+      };
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const refundStats = refundStatsData || {
+    totalRequests: refunds.length,
+    pendingRequests: refunds.filter(r => r.status === 'pending').length,
+    processedRequests: refunds.filter(r => r.status === 'refunded').length,
+    totalRefunded: refunds.filter(r => r.status === 'refunded').reduce((sum, r) => sum + r.amount, 0)
   };
+
+  const processRefundMutation = useMutation({
+    mutationFn: async ({ id, body }) => {
+      const res = await axios.post(`${API_BASE_URL}/refund/process/${id}`, body, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-refunds'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-refund-stats'] });
+    }
+  });
+
+  const loading = refundsLoading || statsLoading || processRefundMutation.isPending;
 
   const handleApproveRefund = (refund) => {
     setSelectedRefund(refund);
@@ -116,31 +95,19 @@ const AdminRefunds = () => {
 
   const handleProcessRefund = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/refund/process/${selectedRefund._id}`, {
-        method: 'POST',
-        headers: {
-          'auth_token': token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      await processRefundMutation.mutateAsync({
+        id: selectedRefund._id,
+        body: {
           status: 'refunded',
           refundAmount: Number(refundAmount),
           adminNotes: refundReason
-        })
+        }
       });
-
-      if (response.ok) {
-        fetchRefunds();
-        setShowModal(false);
-        setSelectedRefund(null);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || 'Failed to process refund');
-      }
+      setShowModal(false);
+      setSelectedRefund(null);
     } catch (error) {
       console.error('Error processing refund:', error);
-      alert('An error occurred while processing the refund');
+      alert('Failed to process refund: ' + (error?.response?.data?.message || error?.message));
     }
   };
 
@@ -148,29 +115,17 @@ const AdminRefunds = () => {
     if (!window.confirm('Are you sure you want to reject this refund request?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/refund/process/${refundId}`, {
-        method: 'POST',
-        headers: {
-          'auth_token': token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      await processRefundMutation.mutateAsync({
+        id: refundId,
+        body: {
           status: 'rejected',
           adminNotes: 'Rejected by administrator'
-        })
+        }
       });
-
-      if (response.ok) {
-        fetchRefunds();
-        setSelectedRefund(null);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || 'Failed to reject refund');
-      }
+      setSelectedRefund(null);
     } catch (error) {
       console.error('Error rejecting refund:', error);
-      alert('An error occurred while rejecting the refund');
+      alert('Failed to reject refund: ' + (error?.response?.data?.message || error?.message));
     }
   };
 

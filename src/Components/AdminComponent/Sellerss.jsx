@@ -1,19 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form } from "react-bootstrap";
 import { motion } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
-
-import {
-  fetchSeller,
-  selectSellers,
-  selectSellersLoading,
-  selectSellersError,
-  updateSellerStatus,
-} from "../../Features/Backend/SellerSlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 
 function Sellerss() {
-  const [sellers, setSellers] = useState([]);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
   const [filter, setFilter] = useState("");
   const [verifyFilter, setVerifyFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
@@ -55,76 +51,88 @@ function Sellerss() {
     );
   };
 
-  const dispatch = useDispatch();
-  const sellerData = useSelector(selectSellers);
-  const loading = useSelector(selectSellersLoading);
-  const error = useSelector(selectSellersError);
+  const { data: sellerData = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['sellers'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/seller/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (sellerData && Array.isArray(sellerData)) {
-      const mapped = sellerData.map((s) => ({
-        id: s._id,
-        name: s.name,
-        email: s.email,
-        phone: s.phone,
-        gender: s.gender,
-        role: s.role,
-        verifyStatus: s.verifiedstatus ? "Verified" : "Pending",
-        activeStatus: s.active,
-        shopName: s.shopName || "N/A",
-        shopAddress: s.shopAddress || "N/A",
-        image: s.image || "",
-      }));
-
-      setSellers(mapped);
+  const updateSellerMutation = useMutation({
+    mutationFn: async ({ id, active }) => {
+      const res = await axios.patch(`${API_BASE_URL}/seller/update-status/${id}`, { active });
+      return res.data?.data || res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sellers'] });
     }
+  });
+
+  const mappedSellers = React.useMemo(() => {
+    if (!Array.isArray(sellerData)) return [];
+    return sellerData.map((s) => ({
+      id: s._id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      gender: s.gender,
+      role: s.role,
+      verifyStatus: s.verifiedstatus ? "Verified" : "Pending",
+      activeStatus: s.active,
+      shopName: s.shopName || "N/A",
+      shopAddress: s.shopAddress || "N/A",
+      image: s.image || "",
+    }));
   }, [sellerData]);
 
-  useEffect(() => {
-    dispatch(fetchSeller());
-  }, []);
-
   const handleSort = () => {
-    const sorted = [...sellers].sort((a, b) =>
-      sortOrder === "asc"
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name)
-    );
-    setSellers(sorted);
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const handleToggleActive = async (id, currentActive, name) => {
     try {
-      await dispatch(updateSellerStatus({ id, active: !currentActive })).unwrap();
+      await updateSellerMutation.mutateAsync({ id, active: !currentActive });
       const msg = !currentActive ? `${name || "Seller"} is now Active` : `${name || "Seller"} is now Inactive`;
       alert(msg);
-      // No need to refresh - Redux state is already updated by updateSellerStatus.fulfilled
     } catch (err) {
       alert("Failed to update seller status");
     }
   };
 
-  const filteredSellers = sellers.filter((s) => {
-    const textMatch =
-      s.name.toLowerCase().includes(filter) ||
-      s.email.toLowerCase().includes(filter) ||
-      s.phone.toLowerCase().includes(filter) ||
-      s.role.toLowerCase().includes(filter) ||
-      s.gender.toLowerCase().includes(filter) ||
-      s.shopName.toLowerCase().includes(filter);
+  const sortedSellers = React.useMemo(() => {
+    return [...mappedSellers].sort((a, b) => {
+      const nameA = a.name || "";
+      const nameB = b.name || "";
+      return sortOrder === "asc"
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    });
+  }, [mappedSellers, sortOrder]);
 
-    const verifyMatch =
-      verifyFilter === "all" ||
-      s.verifyStatus.toLowerCase() === verifyFilter;
+  const filteredSellers = React.useMemo(() => {
+    return sortedSellers.filter((s) => {
+      const textMatch =
+        (s.name || "").toLowerCase().includes(filter) ||
+        (s.email || "").toLowerCase().includes(filter) ||
+        (s.phone || "").toLowerCase().includes(filter) ||
+        (s.role || "").toLowerCase().includes(filter) ||
+        (s.gender || "").toLowerCase().includes(filter) ||
+        (s.shopName || "").toLowerCase().includes(filter);
 
-    const activeMatch =
-      activeFilter === "all" ||
-      (activeFilter === "active" && s.activeStatus) ||
-      (activeFilter === "inactive" && !s.activeStatus);
+      const verifyMatch =
+        verifyFilter === "all" ||
+        s.verifyStatus.toLowerCase() === verifyFilter;
 
-    return textMatch && verifyMatch && activeMatch;
-  });
+      const activeMatch =
+        activeFilter === "all" ||
+        (activeFilter === "active" && s.activeStatus) ||
+        (activeFilter === "inactive" && !s.activeStatus);
+
+      return textMatch && verifyMatch && activeMatch;
+    });
+  }, [sortedSellers, filter, verifyFilter, activeFilter]);
 
   const totalPages = Math.ceil(filteredSellers.length / itemsPerPage);
   const currentSellers = filteredSellers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -133,8 +141,11 @@ function Sellerss() {
     setCurrentPage(1);
   }, [filter, verifyFilter, activeFilter, sortOrder]);
 
+  const loading = isLoading || updateSellerMutation.isPending;
+  const error = queryError?.response?.data?.message || queryError?.message || updateSellerMutation.error?.response?.data?.message || updateSellerMutation.error?.message || null;
+
   if (loading) return <h4 className="loadingText">Loading Sellers...</h4>;
-  if (error) return <h4>Error loading sellers</h4>;
+  if (error) return <h4>Error loading sellers: {error}</h4>;
 
   return (
     <>

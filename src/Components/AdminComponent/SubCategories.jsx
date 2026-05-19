@@ -1,28 +1,77 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Form, Image, Modal, Spinner } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchsubcategories,
-  createSubcategory,
-  updateSubcategory,
-  deleteSubcategory,
-  selectsubcategories,
-  selectsubcategoriesError,
-  selectsubcategoriesLoading,
-} from "../../Features/Backend/SubCategorySlice";
-import {
-  fetchcategories,
-  selectcategories,
-} from "../../Features/Backend/CategorySlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
 
 function SubCategories() {
-  const dispatch = useDispatch();
-  const subcategoryData = useSelector(selectsubcategories);
-  const loading = useSelector(selectsubcategoriesLoading);
-  const error = useSelector(selectsubcategoriesError);
-  const categories = useSelector(selectcategories);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: subcategoryData = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['subcategories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/subcategory/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/category/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const createSubcategoryMutation = useMutation({
+    mutationFn: async (formData) => {
+      const res = await axios.post(`${API_BASE_URL}/subcategory/add`, formData, {
+        headers: {
+          auth_token: token,
+          "Content-Type": "multipart/form-data",
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
+    }
+  });
+
+  const updateSubcategoryMutation = useMutation({
+    mutationFn: async ({ id, formData }) => {
+      const res = await axios.patch(`${API_BASE_URL}/subcategory/update/${id}`, formData, {
+        headers: {
+          auth_token: token,
+          "Content-Type": "multipart/form-data",
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
+    }
+  });
+
+  const deleteSubcategoryMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/subcategory/delete/${id}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
+    }
+  });
+
+  const loading = isLoading || createSubcategoryMutation.isPending || updateSubcategoryMutation.isPending || deleteSubcategoryMutation.isPending;
+  const error = queryError?.response?.data?.message || queryError?.message || createSubcategoryMutation.error?.response?.data?.message || createSubcategoryMutation.error?.message || updateSubcategoryMutation.error?.response?.data?.message || updateSubcategoryMutation.error?.message || deleteSubcategoryMutation.error?.response?.data?.message || deleteSubcategoryMutation.error?.message || null;
 
   const [filter, setFilter] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -42,11 +91,6 @@ function SubCategories() {
     Image: "",
     catid: "",
   });
-
-  useEffect(() => {
-    dispatch(fetchsubcategories());
-    dispatch(fetchcategories());
-  }, [dispatch]);
 
   const handleOpenModal = (subCat = null) => {
     if (subCat) {
@@ -99,19 +143,17 @@ function SubCategories() {
 
     try {
       if (editMode) {
-        await dispatch(
-          updateSubcategory({ id: currentSubCategory._id, formData })
-        ).unwrap();
+        await updateSubcategoryMutation.mutateAsync({ id: currentSubCategory._id, formData });
         setToast({ type: "success", message: "Sub-category updated" });
       } else {
-        await dispatch(createSubcategory(formData)).unwrap();
+        await createSubcategoryMutation.mutateAsync(formData);
         setToast({ type: "success", message: "Sub-category created" });
       }
       setShowModal(false);
       setImageFile(null);
       setImagePreview("");
     } catch (err) {
-      setToast({ type: "danger", message: err || "Operation failed" });
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Operation failed" });
     }
   };
 
@@ -121,14 +163,14 @@ function SubCategories() {
     );
     if (!confirm) return;
     try {
-      await dispatch(deleteSubcategory(id)).unwrap();
+      await deleteSubcategoryMutation.mutateAsync(id);
       setToast({ type: "warning", message: "Sub-category deleted" });
     } catch (err) {
       setToast(
         {
           type: "danger",
           message:
-            err ||
+            err?.response?.data?.message || err?.message ||
             "Delete failed (ensure backend delete route is enabled on /subcategory/delete/:id)",
         }
       );

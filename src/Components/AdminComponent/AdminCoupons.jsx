@@ -1,18 +1,84 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaCopy, FaSearch } from 'react-icons/fa';
-import { createCoupon, fetchCoupons, updateCoupon, deleteCoupon, toggleCouponStatus } from '../../Features/Backend/CouponSlice';
 import ReusablePagination from '../ReusablePagination';
 import './AdminCoupons.css';
 
 const AdminCoupons = () => {
-  const dispatch = useDispatch();
-  const { coupons, loading, error, pagination } = useSelector(state => state.coupons);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [showForm, setShowForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const { data: couponsData, isLoading, error: queryError } = useQuery({
+    queryKey: ['admin-coupons', currentPage],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/coupon?page=${currentPage}&limit=10`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const coupons = couponsData?.data || [];
+  const pagination = couponsData?.pagination;
+
+  const createCouponMutation = useMutation({
+    mutationFn: async (couponData) => {
+      const res = await axios.post(`${API_BASE_URL}/coupon`, couponData, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+    }
+  });
+
+  const updateCouponMutation = useMutation({
+    mutationFn: async ({ id, updates }) => {
+      const res = await axios.put(`${API_BASE_URL}/coupon/${id}`, updates, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+    }
+  });
+
+  const deleteCouponMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/coupon/${id}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+    }
+  });
+
+  const toggleCouponStatusMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.patch(`${API_BASE_URL}/coupon/${id}/toggle`, {}, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+    }
+  });
+
+  const loading = isLoading || createCouponMutation.isPending || updateCouponMutation.isPending || deleteCouponMutation.isPending || toggleCouponStatusMutation.isPending;
+  const error = queryError?.response?.data?.message || queryError?.message || createCouponMutation.error?.response?.data?.message || createCouponMutation.error?.message || updateCouponMutation.error?.response?.data?.message || updateCouponMutation.error?.message || deleteCouponMutation.error?.response?.data?.message || deleteCouponMutation.error?.message || toggleCouponStatusMutation.error?.response?.data?.message || toggleCouponStatusMutation.error?.message || null;
 
   const CustomSelect = ({ value, options, onChange, label, style }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -62,10 +128,6 @@ const AdminCoupons = () => {
     isActive: true
   });
 
-  useEffect(() => {
-    dispatch(fetchCoupons({ page: currentPage, limit: 10 }));
-  }, [dispatch, currentPage]);
-
   const resetForm = () => {
     setFormData({
       code: '',
@@ -86,20 +148,18 @@ const AdminCoupons = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (editingCoupon) {
-      dispatch(updateCoupon({
-        id: editingCoupon._id,
-        updates: formData
-      })).then(() => {
-        resetForm();
-        dispatch(fetchCoupons({ page: currentPage, limit: 10 }));
-      });
-    } else {
-      dispatch(createCoupon(formData)).then(() => {
-        resetForm();
-        dispatch(fetchCoupons({ page: currentPage, limit: 10 }));
-      });
+    try {
+      if (editingCoupon) {
+        await updateCouponMutation.mutateAsync({
+          id: editingCoupon._id,
+          updates: formData
+        });
+      } else {
+        await createCouponMutation.mutateAsync(formData);
+      }
+      resetForm();
+    } catch (err) {
+      alert("Failed to save coupon: " + (err?.response?.data?.message || err?.message));
     }
   };
 
@@ -121,18 +181,22 @@ const AdminCoupons = () => {
     setShowForm(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this coupon?')) {
-      dispatch(deleteCoupon(id)).then(() => {
-        dispatch(fetchCoupons({ page: currentPage, limit: 10 }));
-      });
+      try {
+        await deleteCouponMutation.mutateAsync(id);
+      } catch (err) {
+        alert("Failed to delete coupon: " + (err?.response?.data?.message || err?.message));
+      }
     }
   };
 
-  const handleToggleStatus = (id) => {
-    dispatch(toggleCouponStatus(id)).then(() => {
-      dispatch(fetchCoupons({ page: currentPage, limit: 10 }));
-    });
+  const handleToggleStatus = async (id) => {
+    try {
+      await toggleCouponStatusMutation.mutateAsync(id);
+    } catch (err) {
+      alert("Failed to toggle coupon status: " + (err?.response?.data?.message || err?.message));
+    }
   };
 
   const copyToClipboard = (code) => {

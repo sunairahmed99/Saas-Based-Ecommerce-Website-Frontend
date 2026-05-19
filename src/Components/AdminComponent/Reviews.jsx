@@ -1,28 +1,83 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchAllReviews,
-  approveReview,
-  deleteReview,
-  selectAllReviews,
-  selectReviewsLoading,
-  selectReviewError,
-  // Product review imports
-  fetchAllProductReviews,
-  approveProductReview,
-  deleteProductReview,
-  selectAllProductReviews,
-  selectAllProductReviewsLoading,
-} from "../../Features/Backend/ReviewSlice";
+import React, { useMemo, useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 
 const Reviews = () => {
-  const dispatch = useDispatch();
-  const websiteReviews = useSelector(selectAllReviews) || [];
-  const productReviews = useSelector(selectAllProductReviews) || [];
-  const websiteLoading = useSelector(selectReviewsLoading);
-  const productLoading = useSelector(selectAllProductReviewsLoading);
-  const error = useSelector(selectReviewError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: websiteReviews = [], isLoading: websiteLoading, error: websiteError } = useQuery({
+    queryKey: ['website-reviews'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/review/getall`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: productReviews = [], isLoading: productLoading, error: productError } = useQuery({
+    queryKey: ['product-reviews'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/review/product/getall`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const approveWebsiteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.patch(`${API_BASE_URL}/review/approve/${id}`, {}, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['website-reviews'] });
+    }
+  });
+
+  const approveProductMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.patch(`${API_BASE_URL}/review/product/approve/${id}`, {}, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-reviews'] });
+    }
+  });
+
+  const deleteWebsiteMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/review/${id}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['website-reviews'] });
+    }
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/review/product/${id}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-reviews'] });
+    }
+  });
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all"); // all, website, product
@@ -63,12 +118,8 @@ const Reviews = () => {
     );
   };
 
-  const loading = websiteLoading || productLoading;
-
-  useEffect(() => {
-    dispatch(fetchAllReviews());
-    dispatch(fetchAllProductReviews());
-  }, [dispatch]);
+  const loading = websiteLoading || productLoading || approveWebsiteMutation.isPending || approveProductMutation.isPending || deleteWebsiteMutation.isPending || deleteProductMutation.isPending;
+  const error = websiteError?.response?.data?.message || websiteError?.message || productError?.response?.data?.message || productError?.message || null;
 
   // Combine and format reviews
   const allReviews = useMemo(() => {
@@ -91,30 +142,28 @@ const Reviews = () => {
 
   const handleApprove = async (review) => {
     const { _id, reviewType } = review;
-    let result;
-
-    if (reviewType === 'website') {
-      result = await dispatch(approveReview(_id));
-    } else if (reviewType === 'product') {
-      result = await dispatch(approveProductReview(_id));
-    }
-
-    if (result && (approveReview.fulfilled.match(result) || approveProductReview.fulfilled.match(result))) {
-      // Refetch both types of reviews after successful approval
-      dispatch(fetchAllReviews());
-      dispatch(fetchAllProductReviews());
+    try {
+      if (reviewType === 'website') {
+        await approveWebsiteMutation.mutateAsync(_id);
+      } else if (reviewType === 'product') {
+        await approveProductMutation.mutateAsync(_id);
+      }
+    } catch (err) {
+      alert("Failed to approve review");
     }
   };
 
   const handleDelete = async (review) => {
     if (window.confirm("Are you sure you want to delete this review?")) {
       const { _id, reviewType } = review;
-      if (reviewType === 'website') {
-        await dispatch(deleteReview(_id));
-        dispatch(fetchAllReviews());
-      } else if (reviewType === 'product') {
-        await dispatch(deleteProductReview(_id));
-        dispatch(fetchAllProductReviews());
+      try {
+        if (reviewType === 'website') {
+          await deleteWebsiteMutation.mutateAsync(_id);
+        } else if (reviewType === 'product') {
+          await deleteProductMutation.mutateAsync(_id);
+        }
+      } catch (err) {
+        alert("Failed to delete review");
       }
     }
   };

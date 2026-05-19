@@ -1,39 +1,44 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState, useMemo, useEffect, memo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { FaChartLine, FaStore, FaBox, FaCalendarAlt, FaDownload, FaFilter } from 'react-icons/fa';
-import { fetchProfitAnalytics, selectProfitAnalytics, selectDashboardStats } from '../../Features/Backend/AnalyticsSlice';
 import ReusablePagination from '../ReusablePagination';
+import { API_BASE_URL } from '../../config';
 import './AdminProfitAnalytics.css';
 
 const AdminProfitAnalytics = memo(() => {
-  const dispatch = useDispatch();
-  const profitData = useSelector(selectProfitAnalytics);
-  const dashboardStats = useSelector(selectDashboardStats);
-  const { loading, error } = useSelector(state => state.analytics);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   });
-  const [selectedSeller, setSelectedSeller] = useState('');
   const [sellerPage, setSellerPage] = useState(1);
   const [productPage, setProductPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Memoize the fetch function
-  const fetchAnalytics = useCallback(() => {
-    dispatch(fetchProfitAnalytics(dateRange));
-  }, [dispatch, dateRange]);
+  const { data: profitData, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['admin-profit-analytics', dateRange],
+    queryFn: async () => {
+      const params = {};
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+      const res = await axios.get(`${API_BASE_URL}/analytics/profit`, {
+        headers: { auth_token: token },
+        params
+      });
+      return res.data?.data || {};
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Memoize processed data
   const processedData = useMemo(() => {
-    if (!profitData || !Array.isArray(profitData)) return { sellers: [], totals: {} };
+    if (!profitData) return { sellers: [], totals: {} };
 
-    const sellers = profitData.map(item => ({
+    const sellerAnalytics = profitData.sellerAnalytics || [];
+    const sellers = sellerAnalytics.map(item => ({
       ...item,
       totalRevenue: Number(item.totalRevenue) || 0,
       totalProfit: Number(item.totalProfit) || 0,
@@ -68,7 +73,6 @@ const AdminProfitAnalytics = memo(() => {
 
   const totalProfit = overview.totalProfit || 0;
   const adminProfit = overview.totalAdminProfit || 0;
-  const sellerProfit = totalProfit;
 
   // Pagination logic
   const totalSellerPages = Math.ceil(sellerAnalytics.length / itemsPerPage);
@@ -86,6 +90,8 @@ const AdminProfitAnalytics = memo(() => {
     setSellerPage(1);
     setProductPage(1);
   }, [dateRange]);
+
+  const error = queryError?.response?.data?.message || queryError?.message || null;
 
   if (loading) {
     return (

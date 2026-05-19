@@ -1,34 +1,70 @@
-import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchAllWallets,
-  fetchAllUserCoupons,
-  addBonusPoints,
-  selectAllWallets,
-  selectAllUserCoupons,
-  selectWalletPagination,
-  selectCouponsPagination,
-  selectWalletLoading,
-  selectWalletError
-} from "../../Features/Backend/WalletSlice";
-import { FaPlus, FaCoins, FaGift, FaUsers, FaSearch, FaEye, FaStar } from "react-icons/fa";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
+import { FaPlus, FaCoins, FaGift, FaUsers } from "react-icons/fa";
 import ReusablePagination from "../ReusablePagination";
 
 const AdminWallet = () => {
-  const dispatch = useDispatch();
-
-  const wallets = useSelector(selectAllWallets);
-  const coupons = useSelector(selectAllUserCoupons);
-  const walletPagination = useSelector(selectWalletPagination);
-  const couponsPagination = useSelector(selectCouponsPagination);
-  const loading = useSelector(selectWalletLoading);
-  const error = useSelector(selectWalletError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [activeTab, setActiveTab] = useState('wallets');
   const [currentPage, setCurrentPage] = useState(1);
   const [couponsPage, setCouponsPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
   const [showBonusModal, setShowBonusModal] = useState(false);
+
+  const [bonusData, setBonusData] = useState({
+    userId: '',
+    points: '',
+    description: ''
+  });
+
+  const { data: walletsData, isLoading: walletsLoading, error: walletsError } = useQuery({
+    queryKey: ['admin-wallets', currentPage],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/wallet/admin/all?page=${currentPage}&limit=20`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const wallets = walletsData?.data || [];
+  const walletPagination = walletsData?.pagination;
+
+  const { data: couponsData, isLoading: couponsLoading, error: couponsError } = useQuery({
+    queryKey: ['admin-user-coupons', couponsPage, statusFilter],
+    queryFn: async () => {
+      const statusParam = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
+      const res = await axios.get(`${API_BASE_URL}/wallet/admin/coupons?page=${couponsPage}&limit=20${statusParam}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    staleTime: 10 * 60 * 1000,
+    enabled: activeTab === 'coupons',
+  });
+
+  const coupons = couponsData?.data || [];
+  const couponsPagination = couponsData?.pagination;
+
+  const addBonusMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await axios.post(`${API_BASE_URL}/wallet/admin/add-bonus`, payload, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-wallets'] });
+    }
+  });
+
+  const loading = walletsLoading || (activeTab === 'coupons' && couponsLoading) || addBonusMutation.isPending;
+  const error = (activeTab === 'wallets' ? walletsError?.response?.data?.message || walletsError?.message : couponsError?.response?.data?.message || couponsError?.message) || addBonusMutation.error?.response?.data?.message || addBonusMutation.error?.message || null;
 
   const CustomSelect = ({ value, options, onChange, label, style }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -63,21 +99,6 @@ const AdminWallet = () => {
       </div>
     );
   };
-  const [bonusData, setBonusData] = useState({
-    userId: '',
-    points: '',
-    description: ''
-  });
-
-  useEffect(() => {
-    dispatch(fetchAllWallets({ page: currentPage, limit: 20 }));
-  }, [dispatch, currentPage]);
-
-  useEffect(() => {
-    if (activeTab === 'coupons') {
-      dispatch(fetchAllUserCoupons({ page: couponsPage, limit: 20, status: statusFilter }));
-    }
-  }, [dispatch, activeTab, couponsPage, statusFilter]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -105,13 +126,12 @@ const AdminWallet = () => {
     }
 
     try {
-      await dispatch(addBonusPoints(bonusData)).unwrap();
+      await addBonusMutation.mutateAsync(bonusData);
       setShowBonusModal(false);
       setBonusData({ userId: '', points: '', description: '' });
-      dispatch(fetchAllWallets({ page: currentPage, limit: 20 }));
     } catch (err) {
       console.error('Error adding bonus points:', err);
-      alert('Failed to add bonus points');
+      alert('Failed to add bonus points: ' + (err?.response?.data?.message || err?.message));
     }
   };
 

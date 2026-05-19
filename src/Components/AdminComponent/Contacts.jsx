@@ -1,25 +1,27 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchContacts,
-  selectContacts,
-  selectContactLoading,
-  selectContactError,
-} from "../../Features/Backend/ContactSlice";
+import React, { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 
 const Contacts = () => {
-  const dispatch = useDispatch();
-  const contacts = useSelector(selectContacts);
-  const loading = useSelector(selectContactLoading);
-  const error = useSelector(selectContactError);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: contacts = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/contact/getall`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || res.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const error = queryError?.response?.data?.message || queryError?.message || null;
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    dispatch(fetchContacts());
-  }, [dispatch]);
 
   const filteredContacts = useMemo(() => {
     const q = search.toLowerCase();

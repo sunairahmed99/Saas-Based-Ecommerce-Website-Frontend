@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import {
   Table,
@@ -15,29 +15,10 @@ import {
   InputGroup,
   FormControl
 } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
 import { API_BASE_URL } from '../../config';
-import {
-  fetchAllBoostPackages,
-  createBoostPackage,
-  updateBoostPackage,
-  toggleBoostPackageStatus,
-  selectAllBoostPackages,
-  selectActiveBoostPackages,
-  selectBoostPackageLoading,
-  selectBoostPackageError
-} from "../../Features/Backend/BoostPackageSlice";
-import {
-  fetchPendingBoostRequests,
-  fetchAllBoostRequests,
-  approveOrRejectBoostRequest,
-  selectPendingBoostRequests,
-  selectAllBoostRequests,
-  selectProductBoostLoading,
-  selectProductBoostError
-} from "../../Features/Backend/ProductBoostSlice";
 import {
   FaCheck,
   FaTimes,
@@ -59,7 +40,8 @@ import {
 } from "react-icons/fa";
 
 function AdminProductBoost() {
-  const dispatch = useDispatch();
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const styles = `
     .modern-admin-boost {
@@ -236,13 +218,29 @@ function AdminProductBoost() {
     }
   `;
 
-  const packages = useSelector(selectAllBoostPackages) || [];
-  const packageLoading = useSelector(selectBoostPackageLoading);
-  const packageError = useSelector(selectBoostPackageError);
+  // Boost Packages Query
+  const { data: packages = [], isLoading: packageLoading, error: packageError } = useQuery({
+    queryKey: ['admin-boost-packages'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/boostpackage/admin/all`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const allRequests = useSelector(selectAllBoostRequests) || [];
-  const requestLoading = useSelector(selectProductBoostLoading);
-  const requestError = useSelector(selectProductBoostError);
+  // Boost Requests Query
+  const { data: allRequests = [], isLoading: requestLoading, error: requestError } = useQuery({
+    queryKey: ['admin-boost-requests'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/boost/admin/all`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const [activeTab, setActiveTab] = useState("packages");
   const [showPackageModal, setShowPackageModal] = useState(false);
@@ -269,39 +267,97 @@ function AdminProductBoost() {
   const [requestsPage, setRequestsPage] = useState(1);
   const itemsPerPage = 10;
 
-  const fetchSettings = async () => {
-    try {
+  // Platform Settings Query
+  const { data: paymentInstructionData } = useQuery({
+    queryKey: ['admin-platform-settings'],
+    queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/api/platform-settings`);
-      if (res.data.success && res.data.data) {
-        setPaymentInstruction(res.data.data.paymentInstruction);
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
+      return res.data?.data?.paymentInstruction || "";
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Setting the local instruction state once loaded
+  useEffect(() => {
+    if (paymentInstructionData !== undefined) {
+      setPaymentInstruction(paymentInstructionData);
     }
+  }, [paymentInstructionData]);
+
+  // Mutations
+  const createPackageMutation = useMutation({
+    mutationFn: async (data) => {
+      const res = await axios.post(`${API_BASE_URL}/boostpackage/admin/create`, data, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+    }
+  });
+
+  const updatePackageMutation = useMutation({
+    mutationFn: async ({ packageId, updateData }) => {
+      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/update/${packageId}`, updateData, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+    }
+  });
+
+  const togglePackageStatusMutation = useMutation({
+    mutationFn: async ({ packageId, isActive }) => {
+      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/toggle/${packageId}`, { isActive }, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+    }
+  });
+
+  const approveOrRejectRequestMutation = useMutation({
+    mutationFn: async ({ requestId, action }) => {
+      const res = await axios.patch(`${API_BASE_URL}/boost/admin/approve`, { requestId, action }, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-boost-requests'] });
+    }
+  });
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (paymentInstruction) => {
+      const res = await axios.patch(`${API_BASE_URL}/api/platform-settings`, { paymentInstruction });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-platform-settings'] });
+    }
+  });
+
+  const showToast = (message, type) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
   const saveSettings = async () => {
     try {
       setSavingSettings(true);
-      await axios.patch(`${API_BASE_URL}/api/platform-settings`, { paymentInstruction });
+      await saveSettingsMutation.mutateAsync(paymentInstruction);
       showToast("Payment instructions updated", "success");
     } catch (error) {
       showToast("Failed to update settings", "danger");
     } finally {
       setSavingSettings(false);
     }
-  };
-
-  useEffect(() => {
-    dispatch(fetchAllBoostPackages());
-    dispatch(fetchPendingBoostRequests());
-    dispatch(fetchAllBoostRequests());
-    fetchSettings();
-  }, [dispatch]);
-
-  const showToast = (message, type) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
   };
 
   const handlePackageSubmit = async (e) => {
@@ -315,21 +371,19 @@ function AdminProductBoost() {
 
     try {
       if (editingPackage) {
-        await dispatch(
-          updateBoostPackage({
-            packageId: editingPackage._id,
-            updateData: data
-          })
-        ).unwrap();
+        await updatePackageMutation.mutateAsync({
+          packageId: editingPackage._id,
+          updateData: data
+        });
         showToast("Package updated successfully", "success");
       } else {
-        await dispatch(createBoostPackage(data)).unwrap();
+        await createPackageMutation.mutateAsync(data);
         showToast("Package created successfully", "success");
       }
       setShowPackageModal(false);
       resetForm();
     } catch (err) {
-      showToast(err?.message || "Error", "danger");
+      showToast(err?.response?.data?.message || err?.message || "Error", "danger");
     }
   };
 
@@ -347,21 +401,19 @@ function AdminProductBoost() {
 
   const handleToggleStatus = async (packageId, isActive) => {
     try {
-      await dispatch(toggleBoostPackageStatus({ packageId, isActive })).unwrap();
+      await togglePackageStatusMutation.mutateAsync({ packageId, isActive });
       showToast(`Package ${isActive ? 'activated' : 'deactivated'} successfully`, "success");
     } catch (err) {
-      showToast(err?.message || "Error updating package status", "danger");
+      showToast(err?.response?.data?.message || err?.message || "Error updating package status", "danger");
     }
   };
 
   const handleApproveRequest = async (requestId, action) => {
     try {
-      await dispatch(approveOrRejectBoostRequest({ requestId, action })).unwrap();
+      await approveOrRejectRequestMutation.mutateAsync({ requestId, action });
       showToast(`Request ${action} successfully`, "success");
-      dispatch(fetchPendingBoostRequests());
-      dispatch(fetchAllBoostRequests());
     } catch (err) {
-      showToast(err?.message || "Error updating request", "danger");
+      showToast(err?.response?.data?.message || err?.message || "Error updating request", "danger");
     }
   };
 
@@ -414,6 +466,9 @@ function AdminProductBoost() {
   useEffect(() => {
     setRequestsPage(1);
   }, [searchTerm, statusFilter, sortBy]);
+
+  const packageErr = packageError?.response?.data?.message || packageError?.message || createPackageMutation.error?.response?.data?.message || createPackageMutation.error?.message || updatePackageMutation.error?.response?.data?.message || updatePackageMutation.error?.message || togglePackageStatusMutation.error?.response?.data?.message || togglePackageStatusMutation.error?.message || null;
+  const requestErr = requestError?.response?.data?.message || requestError?.message || approveOrRejectRequestMutation.error?.response?.data?.message || approveOrRejectRequestMutation.error?.message || null;
 
   return (
     <motion.div
@@ -471,9 +526,9 @@ function AdminProductBoost() {
         )}
       </AnimatePresence>
 
-      {(packageError || requestError) && (
+      {(packageErr || requestErr) && (
         <div style={{margin:'20px auto',maxWidth:480,background:'linear-gradient(90deg,#ff5f7a 30%,#ff3838 100%)',color:'white',fontWeight:700,padding:'18px',borderRadius:'11px',boxShadow:'0 2px 24px #ff475766',textAlign:'center',letterSpacing:'0.04em',fontSize:'1.10rem'}}>
-          {packageError || requestError}
+          {packageErr || requestErr}
         </div>
       )}
 

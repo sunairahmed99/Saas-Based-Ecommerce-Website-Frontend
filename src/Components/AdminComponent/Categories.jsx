@@ -1,23 +1,68 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Form, Image, Modal, Spinner } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchcategories,
-  createCategory,
-  updateCategory,
-  deleteCategory,
-  selectcategories,
-  selectcategoriesError,
-  selectcategoriesLoading,
-} from "../../Features/Backend/CategorySlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
 
 function Categories() {
-  const dispatch = useDispatch();
-  const categoryData = useSelector(selectcategories);
-  const loading = useSelector(selectcategoriesLoading);
-  const error = useSelector(selectcategoriesError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: categoryData = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/category/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (formData) => {
+      const res = await axios.post(`${API_BASE_URL}/category/add`, formData, {
+        headers: {
+          auth_token: token,
+          "Content-Type": "multipart/form-data",
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    }
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, formData }) => {
+      const res = await axios.patch(`${API_BASE_URL}/category/update/${id}`, formData, {
+        headers: {
+          auth_token: token,
+          "Content-Type": "multipart/form-data",
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    }
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/category/delete/${id}`, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    }
+  });
+
+  const loading = isLoading || createCategoryMutation.isPending || updateCategoryMutation.isPending || deleteCategoryMutation.isPending;
+  const error = queryError?.response?.data?.message || queryError?.message || createCategoryMutation.error?.response?.data?.message || createCategoryMutation.error?.message || updateCategoryMutation.error?.response?.data?.message || updateCategoryMutation.error?.message || deleteCategoryMutation.error?.response?.data?.message || deleteCategoryMutation.error?.message || null;
 
   const [filter, setFilter] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -36,18 +81,6 @@ function Categories() {
     name: "",
     Image: "",
   });
-
-  useEffect(() => {
-
-    dispatch(fetchcategories());
-  }, [dispatch]);
-
-  // Debug logging
-  useEffect(() => {
-
-
-
-  }, [categoryData, loading, error]);
 
   const handleOpenModal = (category = null) => {
     if (category) {
@@ -94,19 +127,17 @@ function Categories() {
 
     try {
       if (editMode) {
-        await dispatch(
-          updateCategory({ id: currentCategory._id, formData })
-        ).unwrap();
+        await updateCategoryMutation.mutateAsync({ id: currentCategory._id, formData });
         setToast({ type: "success", message: "Category updated" });
       } else {
-        await dispatch(createCategory(formData)).unwrap();
+        await createCategoryMutation.mutateAsync(formData);
         setToast({ type: "success", message: "Category created" });
       }
       setShowModal(false);
       setImageFile(null);
       setImagePreview("");
     } catch (err) {
-      setToast({ type: "danger", message: err || "Operation failed" });
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Operation failed" });
     }
   };
 
@@ -116,10 +147,10 @@ function Categories() {
     );
     if (!confirm) return;
     try {
-      await dispatch(deleteCategory(id)).unwrap();
+      await deleteCategoryMutation.mutateAsync(id);
       setToast({ type: "warning", message: "Category deleted" });
     } catch (err) {
-      setToast({ type: "danger", message: err || "Delete failed" });
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Delete failed" });
     }
   };
 

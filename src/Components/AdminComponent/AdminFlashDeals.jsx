@@ -1,28 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Table, Button, Form, Spinner } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useMemo, useState, useEffect } from "react";
+import { Table, Form, Spinner } from "react-bootstrap";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
-import {
-  fetchPendingFlashDeals,
-  fetchApprovedFlashDeals,
-  approveOrRejectFlashDeal,
-  selectPendingDeals,
-  selectApprovedDeals,
-  selectFlashDealLoading,
-  selectFlashDealError
-} from "../../Features/Backend/FlashDealSlice";
-
 import { FaCheck, FaTimes, FaBan, FaStore, FaBolt, FaTag } from 'react-icons/fa';
 
 function AdminFlashDeals() {
-  const dispatch = useDispatch();
-  const pending = useSelector(selectPendingDeals) || [];
-  const approved = useSelector(selectApprovedDeals) || [];
-  const loading = useSelector(selectFlashDealLoading);
-  const error = useSelector(selectFlashDealError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  // Filter/Sort/Search states
   const [filter, setFilter] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [toast, setToast] = useState(null);
@@ -30,10 +18,47 @@ function AdminFlashDeals() {
   const [approvedPage, setApprovedPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    dispatch(fetchPendingFlashDeals());
-    dispatch(fetchApprovedFlashDeals());
-  }, [dispatch]);
+  const { data: pending = [], isLoading: pendingLoading, error: pendingError } = useQuery({
+    queryKey: ['admin-pending-flash-deals'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/pending`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: approved = [], isLoading: approvedLoading, error: approvedError } = useQuery({
+    queryKey: ['admin-approved-flash-deals'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/approved`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const actionMutation = useMutation({
+    mutationFn: async ({ flashDealId, action }) => {
+      const res = await axios.patch(`${API_BASE_URL}/flashdeal/approve`, { flashDealId, action }, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    onSuccess: (data, variables) => {
+      setToast({ type: "success", message: `Status changed: ${variables.action}` });
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-flash-deals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approved-flash-deals'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Operation failed" });
+    }
+  });
+
+  const loading = pendingLoading || approvedLoading || actionMutation.isPending;
+  const error = pendingError?.response?.data?.message || pendingError?.message || approvedError?.response?.data?.message || approvedError?.message || null;
 
   // Filtering
   const filteredPending = useMemo(() => {
@@ -78,12 +103,9 @@ function AdminFlashDeals() {
 
   const handleAction = async (id, action) => {
     try {
-      await dispatch(approveOrRejectFlashDeal({ flashDealId: id, action })).unwrap();
-      setToast({ type: "success", message: `Status changed: ${action}` });
-      dispatch(fetchPendingFlashDeals());
-      dispatch(fetchApprovedFlashDeals());
+      await actionMutation.mutateAsync({ flashDealId: id, action });
     } catch (err) {
-      setToast({ type: "danger", message: err || "Operation failed" });
+      console.error(err);
     }
   };
 

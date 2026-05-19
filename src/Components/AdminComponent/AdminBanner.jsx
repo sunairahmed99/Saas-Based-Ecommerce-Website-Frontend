@@ -1,29 +1,73 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form, Modal, Spinner, Image, Badge } from "react-bootstrap";
-import { useDispatch, useSelector } from "react-redux";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
-import {
-  fetchBanners,
-  createBanner,
-  updateBanner,
-  deleteBanner,
-  selectBanners,
-  selectBannersLoading,
-  selectBannersError,
-  selectCreatingBanner,
-  selectUpdatingBanner,
-  selectDeletingBanner,
-} from "../../Features/Backend/BannerSlice";
+import { API_BASE_URL } from "../../config";
 
 function AdminBanner() {
-  const dispatch = useDispatch();
-  const banners = useSelector(selectBanners) || [];
-  const loading = useSelector(selectBannersLoading);
-  const error = useSelector(selectBannersError);
-  const creating = useSelector(selectCreatingBanner);
-  const updating = useSelector(selectUpdatingBanner);
-  const deleting = useSelector(selectDeletingBanner);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: banners = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['admin-banners'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/offer/banner/getall`);
+      return res.data?.success ? res.data.data : [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const createBannerMutation = useMutation({
+    mutationFn: async (formData) => {
+      const res = await axios.post(`${API_BASE_URL}/offer/banner/create`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'auth_token': token
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+    }
+  });
+
+  const updateBannerMutation = useMutation({
+    mutationFn: async ({ id, bannerData }) => {
+      const res = await axios.patch(`${API_BASE_URL}/offer/banner/update/${id}`, bannerData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'auth_token': token
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+    }
+  });
+
+  const deleteBannerMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axios.delete(`${API_BASE_URL}/offer/banner/delete/${id}`, {
+        headers: {
+          'auth_token': token
+        }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+    }
+  });
+
+  const creating = createBannerMutation.isPending;
+  const updating = updateBannerMutation.isPending;
+  const deleting = deleteBannerMutation.isPending;
+
+  const error = queryError?.response?.data?.message || queryError?.message || createBannerMutation.error?.response?.data?.message || createBannerMutation.error?.message || updateBannerMutation.error?.response?.data?.message || updateBannerMutation.error?.message || deleteBannerMutation.error?.response?.data?.message || deleteBannerMutation.error?.message || null;
 
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -46,10 +90,6 @@ function AdminBanner() {
   const [toast, setToast] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    dispatch(fetchBanners());
-  }, [dispatch]);
 
   // Toast effect
   useEffect(() => {
@@ -132,18 +172,17 @@ function AdminBanner() {
 
     try {
       if (editMode) {
-        await dispatch(updateBanner({ id: currentBanner._id, bannerData: formData })).unwrap();
+        await updateBannerMutation.mutateAsync({ id: currentBanner._id, bannerData: formData });
         setToast({ type: "success", message: "Banner updated successfully" });
       } else {
-        await dispatch(createBanner(formData)).unwrap();
+        await createBannerMutation.mutateAsync(formData);
         setToast({ type: "success", message: "Banner created successfully" });
       }
       setShowModal(false);
       setImageFile(null);
       setImagePreview("");
-      dispatch(fetchBanners()); // Refresh the list
     } catch (err) {
-      setToast({ type: "danger", message: err || "Operation failed" });
+      console.error(err);
     }
   };
 
@@ -151,11 +190,10 @@ function AdminBanner() {
     const confirm = window.confirm("Are you sure you want to delete this banner?");
     if (!confirm) return;
     try {
-      await dispatch(deleteBanner(id)).unwrap();
+      await deleteBannerMutation.mutateAsync(id);
       setToast({ type: "warning", message: "Banner deleted successfully" });
-      dispatch(fetchBanners()); // Refresh the list
     } catch (err) {
-      setToast({ type: "danger", message: err || "Delete failed" });
+      console.error(err);
     }
   };
 
