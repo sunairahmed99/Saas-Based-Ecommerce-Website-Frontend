@@ -3,31 +3,55 @@ import { Table, Button, Form, Image, Modal, Spinner } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  fetchproducts,
-  fetchSellerProducts,
-  createProduct,
-  updateProductStatus,
-  deleteProduct,
-  selectProducts,
-  selectProductsError,
-  selectProductsLoading,
-  toggleProductFeatured
-} from "../../Features/Backend/ProductSlice";
-import { fetchcategories, selectcategories } from "../../Features/Backend/CategorySlice";
-import { fetchsubcategories, selectsubcategories } from "../../Features/Backend/SubCategorySlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import { FaBars } from "react-icons/fa";
 import ReusablePagination from "../ReusablePagination";
 
 function Products({ isSellerView = false, setIsSidebarOpen }) {
-  const dispatch = useDispatch();
-  const products = useSelector(selectProducts);
-  const loading = useSelector(selectProductsLoading);
-  const error = useSelector(selectProductsError);
-  const categories = useSelector(selectcategories);
-  const subcategories = useSelector(selectsubcategories);
   const seller = useSelector(selectSeller);
+  const sellerId = seller?.data?._id || seller?._id;
+  const queryClient = useQueryClient();
+
+  const { data: products = [], isLoading: loading, error: productsError } = useQuery({
+    queryKey: ['products', isSellerView, sellerId],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      if (isSellerView) {
+        if (!sellerId) return [];
+        const res = await axios.get(`${API_BASE_URL}/product/getsellerproduct`, {
+          headers: { seller_id: sellerId, auth_token: token }
+        });
+        return res.data?.data || [];
+      } else {
+        const res = await axios.get(`${API_BASE_URL}/product/getall`);
+        return res.data?.data || [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const error = productsError ? (productsError?.message || "Failed to load products") : null;
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/category/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: subcategories = [] } = useQuery({
+    queryKey: ['subcategories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/subcategory/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
   const CustomSelect = ({ value, options, onChange, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -117,22 +141,7 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
     existingImage3: null,
   });
 
-  useEffect(() => {
-    dispatch(fetchcategories());
-    dispatch(fetchsubcategories());
-  }, [dispatch]);
-
-  // Load products based on context (admin vs seller)
-  useEffect(() => {
-    const sellerId = seller?.data?._id || seller?._id;
-    if (isSellerView) {
-      if (sellerId) {
-        dispatch(fetchSellerProducts(sellerId));
-      }
-    } else {
-      dispatch(fetchproducts());
-    }
-  }, [dispatch, isSellerView, seller?.data?._id, seller?._id]);
+  // Replaced legacy useEffect data fetching with useQuery hook definitions.
 
 
   // Open modal
@@ -587,54 +596,147 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
       return;
     }
 
-    try {
-      const result = await dispatch(createProduct({ product: payload, sellerId, token })).unwrap();
+    const productMutation = {
+      pname: payload.pname,
+      pdescription: payload.pdescription,
+      pprice: payload.pprice,
+      discountPercent: payload.discountPercent,
+      sku: payload.sku,
+      stockType: payload.stockType,
+      totalStock: payload.totalStock,
+      minStockAlert: payload.minStockAlert,
+      warehouse: payload.warehouse,
+      psize: payload.psize,
+      pcolor: payload.pcolor,
+      catid: payload.catid,
+      subcatid: payload.subcatid,
+      pimage1: payload.pimage1,
+      pimage2: payload.pimage2,
+      pimage3: payload.pimage3,
+      ...(editMode ? { _id: payload._id } : {})
+    };
+
+    saveMutation.mutate(productMutation);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload) => {
+      const formData = new FormData();
+      if (payload._id) formData.append("_id", payload._id);
+      formData.append("pname", payload.pname || "");
+      formData.append("pdescription", payload.pdescription || "");
+      formData.append("pprice", payload.pprice ?? "");
+      formData.append("discountPercent", payload.discountPercent ?? "");
+      formData.append("sku", payload.sku || "");
+      formData.append("stockType", payload.stockType || "in_stock");
+      formData.append("totalStock", payload.totalStock ?? "");
+      formData.append("minStockAlert", payload.minStockAlert ?? "10");
+      formData.append("warehouse", payload.warehouse || "");
+      formData.append("catid", payload.catid || "");
+      formData.append("subcatid", payload.subcatid || "");
+      formData.append("sellerid", sellerId || "");
+      formData.append("psize", payload.psize || "");
+      formData.append("pcolor", payload.pcolor || "");
+      if (payload.pimage1) formData.append("pimage1", payload.pimage1);
+      if (payload.pimage2) formData.append("pimage2", payload.pimage2);
+      if (payload.pimage3) formData.append("pimage3", payload.pimage3);
+
+      const token = localStorage.getItem("token");
+      const res = await axios.post(`${API_BASE_URL}/product/create`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          ...(token ? { auth_token: token } : {}),
+        },
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
       setIsSubmitting(false);
       setShowModal(false);
       setToast({ type: "success", message: editMode ? "Product updated" : "Product created" });
-      dispatch(fetchproducts());
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (err) => {
       setIsSubmitting(false);
-      setToast({ type: "danger", message: err || "Failed to create product" });
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Failed to save product" });
     }
-  };
+  });
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete product?")) return;
-    try {
-      await dispatch(deleteProduct(id)).unwrap();
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_BASE_URL}/product/delete/${id}`, {
+        headers: {
+          ...(token ? { auth_token: token } : {}),
+        },
+      });
+    },
+    onSuccess: () => {
       setToast({ type: "success", message: "Product deleted" });
-      dispatch(fetchproducts());
-    } catch (err) {
-      setToast({ type: "danger", message: err || "Failed to delete product" });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Failed to delete product" });
     }
+  });
+
+  const handleDelete = (id) => {
+    if (!window.confirm("Delete product?")) return;
+    deleteMutation.mutate(id);
   };
 
-  const handleToggleProductStatus = async (productId, currentStatus) => {
-    try {
-      // Toggle status: if active -> pending, if pending -> active
-      const newStatus = currentStatus === "active" ? "pending" : "active";
-      await dispatch(updateProductStatus({ productId, status: newStatus })).unwrap();
+  const statusMutation = useMutation({
+    mutationFn: async ({ productId, newStatus }) => {
+      const token = localStorage.getItem("token");
+      await axios.patch(
+        `${API_BASE_URL}/product/update-status/${productId}`,
+        { pstatus: newStatus },
+        {
+          headers: {
+            ...(token ? { auth_token: token } : {}),
+          },
+        }
+      );
+    },
+    onSuccess: (_, variables) => {
       setToast({ 
         type: "success", 
-        message: newStatus === "active" 
+        message: variables.newStatus === "active" 
           ? "Product approved successfully!" 
           : "Product status set to pending!" 
       });
-      dispatch(fetchproducts()); // Refresh the products list
-    } catch (err) {
-      setToast({ type: "danger", message: err || "Failed to update product status" });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Failed to update product status" });
     }
+  });
+
+  const handleToggleProductStatus = (productId, currentStatus) => {
+    const newStatus = currentStatus === "active" ? "pending" : "active";
+    statusMutation.mutate({ productId, newStatus });
   };
 
-  const handleToggleFeatured = async (productId) => {
-    try {
-      await dispatch(toggleProductFeatured(productId)).unwrap();
+  const featureMutation = useMutation({
+    mutationFn: async (productId) => {
+      const token = localStorage.getItem("token");
+      await axios.patch(`${API_BASE_URL}/product/toggle-feature/${productId}`, {}, {
+        headers: {
+          auth_token: token
+        }
+      });
+    },
+    onSuccess: () => {
       setToast({ type: "success", message: "Featured status updated!" });
-      dispatch(fetchproducts());
-    } catch (err) {
-      setToast({ type: "danger", message: err || "Failed to update featured status" });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Failed to update featured status" });
     }
+  });
+
+  const handleToggleFeatured = (productId) => {
+    featureMutation.mutate(productId);
   };
 
   // Filter

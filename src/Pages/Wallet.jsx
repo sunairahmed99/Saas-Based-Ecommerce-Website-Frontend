@@ -3,12 +3,10 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   fetchUserWallet,
   fetchUserCoupons,
-  generateCouponWithPoints,
-  selectWallet,
-  selectUserCoupons,
-  selectWalletLoading,
-  selectWalletError
 } from "../Features/Backend/WalletSlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import LoaderOverlay from "../Components/LoaderOverlay";
@@ -17,10 +15,8 @@ import { FaWallet, FaCoins, FaShoppingCart, FaGift, FaCalendarAlt, FaCopy, FaChe
 const Wallet = () => {
   const dispatch = useDispatch();
 
-  const wallet = useSelector(selectWallet);
-  const coupons = useSelector(selectUserCoupons);
-  const loading = useSelector(selectWalletLoading);
-  const error = useSelector(selectWalletError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [activeTab, setActiveTab] = useState('overview');
   const [copiedCode, setCopiedCode] = useState(null);
@@ -32,18 +28,48 @@ const Wallet = () => {
   // Custom notification state
   const [notification, setNotification] = useState(null);
 
-  useEffect(() => {
-    const loadWalletData = async () => {
-      try {
-        await dispatch(fetchUserWallet()).unwrap();
-        await dispatch(fetchUserCoupons()).unwrap();
-      } catch (error) {
-        // Error will be handled by the slice and shown in the UI
-      }
-    };
+  const { data: wallet, isLoading: walletLoading, error: walletError } = useQuery({
+    queryKey: ['user-wallet', token],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/wallet/user`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
 
-    loadWalletData();
-  }, [dispatch]);
+  const { data: coupons = [], isLoading: couponsLoading, error: couponsError } = useQuery({
+    queryKey: ['user-coupons', token],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/wallet/user/coupons`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const generateCouponMutation = useMutation({
+    mutationFn: async ({ pointsToSpend }) => {
+      const res = await axios.post(`${API_BASE_URL}/wallet/user/generate-coupon`, { pointsToSpend }, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-wallet', token] });
+      queryClient.invalidateQueries({ queryKey: ['user-coupons', token] });
+      // Keep Redux in sync
+      dispatch(fetchUserWallet());
+      dispatch(fetchUserCoupons());
+    }
+  });
+
+  const loading = walletLoading || couponsLoading;
+  const error = walletError?.response?.data?.message || walletError?.message || couponsError?.response?.data?.message || couponsError?.message || generateCouponMutation.error?.response?.data?.message || generateCouponMutation.error?.message || null;
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -87,7 +113,7 @@ const Wallet = () => {
     setTimeout(() => setNotification(null), duration);
   };
 
-  const handleGenerateCoupon = async () => {
+  const handleGenerateCoupon = () => {
     if ((wallet?.totalPoints || 0) < 10) {
       showNotification('You need at least 10 points to generate a coupon!', 'error');
       return;
@@ -101,21 +127,18 @@ const Wallet = () => {
     }
 
     setGeneratingCoupon(true);
-    try {
-      const result = await dispatch(generateCouponWithPoints({ pointsToSpend: 10 })).unwrap();
-
-      // Refresh wallet and coupons data
-      await dispatch(fetchUserWallet()).unwrap();
-      await dispatch(fetchUserCoupons()).unwrap();
-
-      showNotification(`🎉 Coupon generated successfully!\n\nCode: ${result.data.couponCode}\nValue: PKR 400 off\nValid for 1 month\nMinimum order: PKR 500`, 'success', 6000);
-
-      setShowGenerateCoupon(false);
-    } catch (error) {
-      showNotification('Failed to generate coupon: ' + error, 'error');
-    } finally {
-      setGeneratingCoupon(false);
-    }
+    generateCouponMutation.mutate({ pointsToSpend: 10 }, {
+      onSuccess: (result) => {
+        showNotification(`🎉 Coupon generated successfully!\n\nCode: ${result.data?.couponCode || result.data?.coupon?.code}\nValue: PKR 400 off\nValid for 1 month\nMinimum order: PKR 500`, 'success', 6000);
+        setShowGenerateCoupon(false);
+      },
+      onError: (err) => {
+        showNotification('Failed to generate coupon: ' + (err?.response?.data?.message || err?.message || err), 'error');
+      },
+      onSettled: () => {
+        setGeneratingCoupon(false);
+      }
+    });
   };
 
 

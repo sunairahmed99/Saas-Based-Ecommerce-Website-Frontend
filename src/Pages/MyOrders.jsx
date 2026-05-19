@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
@@ -36,10 +37,8 @@ const statusStyles = {
 
 const MyOrders = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useSelector(selectUser);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   const authHeaders = useMemo(() => {
     const rawToken =
@@ -51,30 +50,26 @@ const MyOrders = () => {
     return { auth_token: token };
   }, [user]);
 
+  const { data: orders = [], isLoading: loading, error: queryError, refetch: fetchOrders } = useQuery({
+    queryKey: ['myOrders', user?.token || localStorage.getItem("token")],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE}/checkout`, {
+        headers: authHeaders,
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!(localStorage.getItem("token") && user),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const error = queryError ? (queryError?.response?.data?.message || "Unable to load your orders right now.") : null;
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token || !user) {
       navigate("/login");
-      return;
     }
-    fetchOrders();
   }, [user, navigate]);
-
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await axios.get(`${API_BASE}/checkout`, {
-        headers: authHeaders,
-      });
-      setOrders(res.data?.data || []);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError(err?.response?.data?.message || "Unable to load your orders right now.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const canReturnOrder = (order) => {
     const status = (order.status || "").toLowerCase();
@@ -100,12 +95,8 @@ const MyOrders = () => {
     return statusStyles[key] || statusStyles.placed;
   };
 
-  const handleReturnOrder = async (orderId) => {
-    if (!window.confirm("Are you sure you want to return this order? Admin will process your refund.")) {
-      return;
-    }
-    try {
-      setLoading(true);
+  const returnMutation = useMutation({
+    mutationFn: async (orderId) => {
       const url = `${API_BASE}/checkout/${orderId}/status`;
       const config = { headers: authHeaders };
       try {
@@ -117,14 +108,21 @@ const MyOrders = () => {
           throw err;
         }
       }
-      setError(null);
-      await fetchOrders();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
       alert("Return request submitted successfully!");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to submit return request.");
-    } finally {
-      setLoading(false);
+    },
+    onError: (err) => {
+      alert(err?.response?.data?.message || "Failed to submit return request.");
     }
+  });
+
+  const handleReturnOrder = (orderId) => {
+    if (!window.confirm("Are you sure you want to return this order? Admin will process your refund.")) {
+      return;
+    }
+    returnMutation.mutate(orderId);
   };
 
   return (
@@ -392,7 +390,7 @@ const MyOrders = () => {
                         <button
                           className="return-btn"
                           onClick={() => handleReturnOrder(order._id)}
-                          disabled={loading}
+                          disabled={returnMutation.isPending}
                           style={{
                             width: "100%",
                             padding: "0.8rem",

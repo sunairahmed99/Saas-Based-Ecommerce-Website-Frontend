@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import LoaderOverlay from "../LoaderOverlay";
 import { FaClock, FaMapMarkerAlt, FaUser } from "react-icons/fa";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchSeller, selectSellers } from '../../Features/Backend/SellerSlice';;
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from '../../config';
 import ReusablePagination from "../ReusablePagination";
 
@@ -38,17 +37,45 @@ const STATUS_META = {
 };
 
 const Orders = () => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSeller, setFilterSeller] = useState('');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const dispatch = useDispatch();
-  const sellers = useSelector(selectSellers) || [];
+  const queryClient = useQueryClient();
+
+  const { data: sellers = [] } = useQuery({
+    queryKey: ['sellers'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE}/seller/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: orders = [], isLoading: loading, error: queryError, refetch: loadOrders } = useQuery({
+    queryKey: ['admin-orders'],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Please login as admin to view orders.");
+      const res = await axios.get(`${API_BASE}/checkout/admin`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (queryError) {
+      setError(queryError.response?.data?.message || queryError.message || "Failed to load orders");
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
 
   const CustomSelect = ({ value, options, onChange, label, style }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -107,175 +134,81 @@ const Orders = () => {
         err?.response?.status === 405 ||
         (typeof err?.response?.data === "string" && err.response.data.includes("Cannot"));
       if (maybeCannotPatch) {
-("Trying POST fallback for order status update");
         return await axios.post(url, { status }, config);
       }
       throw err;
     }
   };
 
-  useEffect(() => {
-    // Test backend connection first
-    testBackendConnection().then(() => {
-      loadOrders();
-    });
-    dispatch(fetchSeller());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch]);
-
-  const normalizeStatus = (status) => (status || "pending").toLowerCase().replace(/\s+/g, "_");
-
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const token = localStorage.getItem("token");
-
-("Loading orders... Token exists:", !!token);
-
-      if (!token) {
-        setError("Please login as admin to view orders.");
-        return;
-      }
-
-("Making API call to:", `${API_BASE}/checkout/admin`);
-
-      const res = await axios.get(`${API_BASE}/checkout/admin`, {
-        headers: {
-          auth_token: token,
-        },
-      });
-
-("Orders response:", res.data);
-      setOrders(res.data?.data || []);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      console.error("Error response:", err?.response);
-      console.error("Error status:", err?.response?.status);
-      console.error("Error data:", err?.response?.data);
-
-      const errorMessage = err?.response?.data?.message ||
-                          err?.response?.data?.error ||
-                          err?.message ||
-                          "Unable to fetch orders.";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const normalizeStatus = (status) => (status || "placed").toLowerCase().replace(/\s+/g, "_");
 
   const sendNotification = async (payload) => {
     try {
       const token = localStorage.getItem("token");
-("Sending notification:", payload);
       await axios.post(`${API_BASE}/notifications`, payload, {
         headers: {
           auth_token: token,
         },
       });
-("Notification sent successfully");
     } catch (err) {
-
+      console.error("Notification error:", err);
     }
   };
 
-  const processRefund = async (orderId, refundAmount, reason) => {
-    try {
+  const refundMutation = useMutation({
+    mutationFn: async ({ orderId, refundAmount, reason }) => {
       const token = localStorage.getItem("token");
-      if (!token) {
-        alert("Please login as admin to process refunds.");
-        return;
-      }
-
-("Processing refund:", { orderId, refundAmount, reason });
-
+      if (!token) throw new Error("Please login as admin to process refunds.");
       const response = await axios.post(`${API_BASE}/wallet/admin/refund`, {
         orderId,
         refundAmount: parseFloat(refundAmount),
         reason
       }, {
-        headers: {
-          auth_token: token,
-        },
+        headers: { auth_token: token },
       });
-
-      if (response.data.status === "success") {
-        alert("Refund processed successfully!");
-        // Refresh orders to show updated status
-        loadOrders();
-      } else {
-        alert("Failed to process refund: " + response.data.message);
+      if (response.data.status !== "success") {
+        throw new Error(response.data.message || "Failed to process refund");
       }
-    } catch (err) {
+    },
+    onSuccess: () => {
+      alert("Refund processed successfully!");
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    },
+    onError: (err) => {
       console.error("Refund processing error:", err);
-      const errorMessage = err?.response?.data?.message ||
-                          err?.response?.data?.error ||
-                          err?.message ||
-                          "Failed to process refund.";
-      alert("Refund failed: " + errorMessage);
+      alert("Refund failed: " + (err?.message || "Failed to process refund"));
     }
+  });
+
+  const processRefund = (orderId, refundAmount, reason) => {
+    refundMutation.mutate({ orderId, refundAmount, reason });
   };
 
-  // Test backend connectivity
-  const testBackendConnection = async () => {
-    try {
-("Testing backend connection...");
-      // Test with a simple endpoint that should exist
-      const res = await axios.get(`${API_BASE}/user/userverify`, {
-        headers: {
-          auth_token: localStorage.getItem("token"),
-        },
-        timeout: 5000
-      });
-("Backend is reachable:", res.status);
-      return true;
-    } catch (err) {
-      console.error("Backend connection failed:", err.message);
-      if (err?.response?.status === 401) {
-        setError("Authentication failed. Please login again.");
-      } else {
-        setError("Backend server is not reachable or MongoDB is not connected. Please check server logs.");
-      }
-      return false;
-    }
-  };
-
-  const updateStatus = async (orderId, status) => {
-    setUpdatingId(orderId);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Please login as admin to update orders.");
-        return;
-      }
-
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }) => {
       await updateOrderStatusRequest(orderId, status);
-      await loadOrders();
-      // send simple customer notification on key milestones
       if (["out_for_delivery", "delivered"].includes(status)) {
-        await sendNotification({
-          to: "customer",
-          type: status,
-          orderId,
-        });
+        await sendNotification({ to: "customer", type: status, orderId });
       }
       if (status === "pickup_assigned") {
-        await sendNotification({
-          to: "seller",
-          type: "pickup_assigned",
-          orderId,
-        });
+        await sendNotification({ to: "seller", type: "pickup_assigned", orderId });
       }
-    } catch (err) {
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    },
+    onError: (err) => {
       console.error("Order update error:", err);
-      const errorMessage = err?.response?.data?.message ||
-                          err?.response?.data?.error ||
-                          err?.message ||
-                          "Failed to update order";
-      setError(errorMessage);
-    } finally {
+      setError(err?.response?.data?.message || err?.message || "Failed to update order");
+    },
+    onSettled: () => {
       setUpdatingId(null);
     }
+  });
+
+  const updateStatus = (orderId, status) => {
+    setUpdatingId(orderId);
+    updateStatusMutation.mutate({ orderId, status });
   };
 
   // Filtering logic

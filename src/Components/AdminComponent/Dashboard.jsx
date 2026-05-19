@@ -1,14 +1,10 @@
-import React, { useEffect, useMemo, useCallback, memo } from "react";
+import React, { useMemo, memo } from "react";
 import Charts from "./Chart";
 import { motion } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchUsers, selectUsers } from "../../Features/Backend/UserSlice";
-import { fetchSeller, selectSellers } from "../../Features/Backend/SellerSlice";
-import { fetchproducts, selectProducts } from "../../Features/Backend/ProductSlice";
-import { fetchcategories, selectcategories } from "../../Features/Backend/CategorySlice";
-import { fetchsubcategories, selectsubcategories } from "../../Features/Backend/SubCategorySlice";
-import { fetchDashboardStats, selectDashboardStats, fetchProfitAnalytics, selectProfitAnalytics } from "../../Features/Backend/AnalyticsSlice";
-import { FaChartLine, FaShoppingCart, FaUsers, FaStore, FaBox, FaTags, FaWallet } from "react-icons/fa";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
+import { FaWallet } from "react-icons/fa";
 import "./Dashboard.css";
 
 function AnimatedCounter({ value }) {
@@ -32,29 +28,76 @@ function AnimatedCounter({ value }) {
 }
 
 const Dashboard = memo(() => {
-  const dispatch = useDispatch();
-  const users = useSelector(selectUsers) || [];
-  const sellers = useSelector(selectSellers) || [];
-  const products = useSelector(selectProducts) || [];
-  const categories = useSelector(selectcategories) || [];
-  const subcategories = useSelector(selectsubcategories) || [];
-  const analytics = useSelector(selectDashboardStats);
-  const profitAnalytics = useSelector(selectProfitAnalytics);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  // Memoize data loading
-  const loadDashboardData = useCallback(() => {
-    dispatch(fetchUsers());
-    dispatch(fetchSeller());
-    dispatch(fetchproducts());
-    dispatch(fetchcategories());
-    dispatch(fetchsubcategories());
-    dispatch(fetchDashboardStats());
-    dispatch(fetchProfitAnalytics());
-  }, [dispatch]);
+  const { data: users = [] } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/user/getall`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+  const { data: sellers = [] } = useQuery({
+    queryKey: ['sellers'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/seller/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products', false, undefined],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/product/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/category/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: subcategories = [] } = useQuery({
+    queryKey: ['subcategories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/subcategory/getall`);
+      return res.data?.data || [];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: analytics } = useQuery({
+    queryKey: ['admin-dashboard-stats'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/analytics/dashboard`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || res.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: profitAnalytics } = useQuery({
+    queryKey: ['admin-profit-analytics'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/analytics/profit`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || res.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Memoize calculated values
   const statsData = useMemo(() => ({

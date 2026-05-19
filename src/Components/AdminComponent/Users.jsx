@@ -1,13 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form } from "react-bootstrap";
 import { motion } from "framer-motion";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchUsers,
-  selectUsers,
-  selectUsersLoading,
-  selectUsersError,
-} from "../../Features/Backend/UserSlice";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 import "./Users.css";
 
@@ -54,10 +50,17 @@ function Users() {
     );
   };
 
-  const dispatch = useDispatch();
-  const user = useSelector(selectUsers);
-  const loading = useSelector(selectUsersLoading);
-  const error = useSelector(selectUsersError);
+  const { data: user = [], isLoading: loading, isError: error } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: async () => {
+      const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+      const res = await axios.get(`${API_BASE_URL}/user/getall`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   useEffect(() => {
     if (user && Array.isArray(user)) {
@@ -75,10 +78,6 @@ function Users() {
       setUsers(mapped);
     }
   }, [user]);
-
-  useEffect(() => {
-    dispatch(fetchUsers());
-  }, []);
 
   const handleSort = () => {
     const sorted = [...users].sort((a, b) =>

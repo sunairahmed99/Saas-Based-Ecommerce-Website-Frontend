@@ -5,15 +5,12 @@ import { useForm } from "react-hook-form";
 import { useSelector, useDispatch } from "react-redux";
 import {
   selectUser,
-  updateProfile,
-  changePassword,
   fetchCurrentUser,
-  selectUpdateLoading,
-  selectUpdateError,
-  selectPasswordLoading,
-  selectPasswordError,
   selectUserInitializing,
 } from "../Features/Backend/UserSlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
 import { useNavigate } from "react-router-dom";
 import LoaderOverlay from "../Components/LoaderOverlay";
 import "./Profile.css";
@@ -22,15 +19,68 @@ const Profile = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector(selectUser);
-  const updateLoading = useSelector(selectUpdateLoading);
-  const updateError = useSelector(selectUpdateError);
-  const passwordLoading = useSelector(selectPasswordLoading);
-  const passwordError = useSelector(selectPasswordError);
   const initializing = useSelector(selectUserInitializing);
+  const queryClient = useQueryClient();
 
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [profileUpdateSuccess, setProfileUpdateSuccess] = useState(false);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+
+  const loginType = typeof window !== "undefined" ? localStorage.getItem("loginType") : null;
+  const token = typeof window !== "undefined" ? localStorage.getItem("token")?.replace(/^Bearer\s+/i, "") : null;
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', token],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/user/userverify`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data;
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: async (formData) => {
+      const form = new FormData();
+      if (formData.name) form.append('name', formData.name);
+      if (formData.phone) form.append('phone', formData.phone);
+      if (formData.gender) form.append('gender', formData.gender);
+      if (formData.image) form.append('image', formData.image);
+
+      const res = await axios.patch(`${API_BASE_URL}/user/editprofile`, form, {
+        headers: {
+          auth_token: token,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      setProfileUpdateSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['user-profile', token] });
+      dispatch(fetchCurrentUser());
+    }
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ currentPassword, newPassword }) => {
+      const res = await axios.post(`${API_BASE_URL}/user/changepassword`, { currentPassword, newPassword }, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      resetPasswordForm();
+      setPasswordChangeSuccess(true);
+    }
+  });
+
+  const updateLoading = updateProfileMutation.isPending;
+  const updateError = updateProfileMutation.error?.response?.data?.message || updateProfileMutation.error?.message || null;
+  const passwordLoading = changePasswordMutation.isPending;
+  const passwordError = changePasswordMutation.error?.response?.data?.message || changePasswordMutation.error?.message || null;
 
   const {
     register,
@@ -49,8 +99,6 @@ const Profile = () => {
 
   const newPassword = watchPassword("newPassword", "");
 
-  const loginType = typeof window !== "undefined" ? localStorage.getItem("loginType") : null;
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   const userData = user?.data;
   const isGoogleUser = userData?.authProvider === 'google';
 
@@ -91,24 +139,20 @@ const Profile = () => {
   };
 
   const onSubmitProfile = (data) => {
-    dispatch(updateProfile(data)).then((action) => {
-      if (updateProfile.fulfilled.match(action)) {
-        setProfileUpdateSuccess(true);
-      }
+    // If a new avatar file was selected, we need to pass it to the mutation
+    const avatarInput = document.querySelector('input[type="file"]');
+    const imageFile = avatarInput?.files?.[0];
+    updateProfileMutation.mutate({
+      name: data.name,
+      phone: data.phone,
+      image: imageFile
     });
   };
 
   const onSubmitPassword = (data) => {
-    dispatch(
-      changePassword({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      })
-    ).then((action) => {
-      if (changePassword.fulfilled.match(action)) {
-        resetPasswordForm();
-        setPasswordChangeSuccess(true);
-      }
+    changePasswordMutation.mutate({
+      currentPassword: data.currentPassword,
+      newPassword: data.newPassword,
     });
   };
 

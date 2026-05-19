@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import LoaderOverlay from "../LoaderOverlay";
 import { useSelector } from "react-redux";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import { FaBox, FaCheckCircle, FaClock, FaMapMarkerAlt, FaPhone } from "react-icons/fa";
 import { API_BASE_URL } from '../../config';
@@ -36,19 +37,38 @@ const STATUS_META = {
 const SellerOrders = () => {
   const seller = useSelector(selectSeller);
   const sellerId = seller?.data?._id || seller?._id;
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
-  const token = useMemo(() => localStorage.getItem("token"), []);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+  const queryClient = useQueryClient();
 
   // Add state for filter & search
   const [filterStatus, setFilterStatus] = useState('');
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('all'); 
-  const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const { data: orders = [], isLoading: loading, error: queryError, refetch: loadOrders } = useQuery({
+    queryKey: ['seller-orders', sellerId],
+    queryFn: async () => {
+      if (!sellerId) return [];
+      const res = await axios.get(`${API_BASE}/checkout?sellerId=${sellerId}`, {
+        headers: { auth_token: token },
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (queryError) {
+      setError(queryError?.response?.data?.message || "Unable to fetch orders for this seller.");
+    } else {
+      setError(null);
+    }
+  }, [queryError]);
 
   const CustomSelect = ({ value, options, onChange, label }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -101,29 +121,7 @@ const SellerOrders = () => {
     }
   };
 
-  useEffect(() => {
-    if (!sellerId) return;
-    loadOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sellerId]);
-
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await axios.get(`${API_BASE}/checkout?sellerId=${sellerId}`, {
-        headers: { auth_token: token },
-      });
-      setOrders(res.data?.data || []);
-    } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-        "Unable to fetch orders for this seller."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Legacy loadOrders has been migrated to useQuery hook
 
   const printOrderSlip = async (orderId) => {
     try {
@@ -166,12 +164,10 @@ const SellerOrders = () => {
 
   const normalizeStatus = (status) => (status || "pending").toLowerCase().replace(/\s+/g, "_");
 
-  const updateStatus = async (orderId, nextStatus) => {
-    setUpdatingId(orderId);
-    try {
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ orderId, nextStatus }) => {
+      setUpdatingId(orderId);
       await updateOrderStatusRequest(orderId, nextStatus);
-      await loadOrders();
-      // push notification to admin if marked ready for pickup
       if (nextStatus === "ready_for_pickup") {
         await sendNotification({
           to: "admin",
@@ -181,11 +177,20 @@ const SellerOrders = () => {
           sellerId,
         });
       }
-    } catch (err) {
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-orders', sellerId] });
+    },
+    onError: (err) => {
       setError(err?.response?.data?.message || "Failed to update status");
-    } finally {
+    },
+    onSettled: () => {
       setUpdatingId(null);
     }
+  });
+
+  const updateStatus = (orderId, nextStatus) => {
+    updateStatusMutation.mutate({ orderId, nextStatus });
   };
 
   const nextActions = (status) => {

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
-import { FaBox, FaCheckCircle, FaTimesCircle, FaChartLine, FaMoneyBillWave, FaUndoAlt, FaExclamationTriangle, FaBars } from "react-icons/fa";
+import { FaBox, FaCheckCircle, FaTimesCircle, FaChartLine, FaMoneyBillWave, FaUndoAlt, FaExclamationTriangle } from "react-icons/fa";
 import LoaderOverlay from "../LoaderOverlay";
 import "./SellerDashboard.css";
 import { Pie } from "react-chartjs-2";
@@ -64,37 +65,33 @@ const SellerDashboard = ({ setIsSidebarOpen }) => {
 
 
 
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
   const [timePeriod, setTimePeriod] = useState("all"); // daily, weekly, monthly, yearly, all, custom
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
 
-  useEffect(() => {
-    if (!sellerId) return;
-    fetchSellerOrders();
-  }, [sellerId]);
-
-  const fetchSellerOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const token = localStorage.getItem("token");
-
+  const { data: orders = [], isLoading: loading, error: queryError } = useQuery({
+    queryKey: ['seller-orders', sellerId],
+    queryFn: async () => {
+      if (!sellerId) return [];
       const res = await axios.get(`${API_BASE}/checkout?sellerId=${sellerId}`, {
         headers: { auth_token: token },
       });
+      return res.data.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      // Extract the data array from the response object { status: "success", data: [...] }
-      setOrders(res.data.data || []);
-    } catch (err) {
-      console.error("Order fetch error:", err);
-      setError(err?.response?.data?.message || "Unable to fetch orders");
-    } finally {
-      setLoading(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (queryError) {
+      setError(queryError?.response?.data?.message || "Unable to fetch orders");
+    } else {
+      setError(null);
     }
-  };
+  }, [queryError]);
 
   // Filter orders by seller items and calculate metrics
   const sellerMetrics = useMemo(() => {
