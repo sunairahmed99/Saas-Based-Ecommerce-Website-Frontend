@@ -310,7 +310,7 @@ const Shop = memo(() => {
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, allProducts, searchResults, searchParams, sellerProducts]);
+  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, rawProducts]);
 
   // Reset page to 1 when filters change
   useEffect(() => {

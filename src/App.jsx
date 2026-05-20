@@ -2,29 +2,47 @@ import React, { lazy, Suspense, useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
 
+// Helper to retry lazy loading on chunk load failures (common after new deployments)
+const lazyWithRetry = (componentImport) => 
+  lazy(() => 
+    componentImport().catch((error) => {
+      const isChunkError = 
+        error.name === "ChunkLoadError" || 
+        /Failed to fetch dynamically imported module/i.test(error.message) ||
+        /Failed to load module script/i.test(error.message);
+      
+      if (isChunkError) {
+        console.warn("Chunk load failed. Reloading page for latest version...", error);
+        window.location.reload();
+        return new Promise(() => {}); // Keep in pending state until reload
+      }
+      throw error;
+    })
+  );
+
 // Lazy Load Pages
-const Home = lazy(() => import("./Pages/Home"));
-const Shop = lazy(() => import("./Pages/Shop"));
-const ProductDetail = lazy(() => import("./Pages/ProductDetail"));
-const Cart = lazy(() => import("./Pages/Cart"));
-const Checkout = lazy(() => import("./Pages/Checkout"));
-const Login = lazy(() => import("./Pages/Login"));
-const Register = lazy(() => import("./Pages/Register"));
-const ForgotPassword = lazy(() => import("./Pages/ForgotPassword"));
-const ResetPassword = lazy(() => import("./Pages/ResetPassword"));
-const VerifyCodeScreen = lazy(() => import("./Pages/VerifyCodeScreen"));
-const Profile = lazy(() => import("./Pages/Profile"));
-const MyOrders = lazy(() => import("./Pages/MyOrders"));
-const Favorites = lazy(() => import("./Pages/Favorites"));
-const ContactUs = lazy(() => import("./Pages/ContactUs"));
-const Reviews = lazy(() => import("./Pages/Reviews"));
-const Wallet = lazy(() => import("./Pages/Wallet"));
-const GoogleCallback = lazy(() => import("./Pages/GoogleCallback"));
-const Admin = lazy(() => import("./Pages/Admin/Admin"));
-const AdminChat = lazy(() => import("./Pages/AdminChat"));
-const SellerAdmin = lazy(() => import("./Pages/SellerAdmin"));
-const SellerProfile = lazy(() => import("./Pages/SellerProfile"));
-const SellerChat = lazy(() => import("./Pages/SellerChat"));
+const Home = lazyWithRetry(() => import("./Pages/Home"));
+const Shop = lazyWithRetry(() => import("./Pages/Shop"));
+const ProductDetail = lazyWithRetry(() => import("./Pages/ProductDetail"));
+const Cart = lazyWithRetry(() => import("./Pages/Cart"));
+const Checkout = lazyWithRetry(() => import("./Pages/Checkout"));
+const Login = lazyWithRetry(() => import("./Pages/Login"));
+const Register = lazyWithRetry(() => import("./Pages/Register"));
+const ForgotPassword = lazyWithRetry(() => import("./Pages/ForgotPassword"));
+const ResetPassword = lazyWithRetry(() => import("./Pages/ResetPassword"));
+const VerifyCodeScreen = lazyWithRetry(() => import("./Pages/VerifyCodeScreen"));
+const Profile = lazyWithRetry(() => import("./Pages/Profile"));
+const MyOrders = lazyWithRetry(() => import("./Pages/MyOrders"));
+const Favorites = lazyWithRetry(() => import("./Pages/Favorites"));
+const ContactUs = lazyWithRetry(() => import("./Pages/ContactUs"));
+const Reviews = lazyWithRetry(() => import("./Pages/Reviews"));
+const Wallet = lazyWithRetry(() => import("./Pages/Wallet"));
+const GoogleCallback = lazyWithRetry(() => import("./Pages/GoogleCallback"));
+const Admin = lazyWithRetry(() => import("./Pages/Admin/Admin"));
+const AdminChat = lazyWithRetry(() => import("./Pages/AdminChat"));
+const SellerAdmin = lazyWithRetry(() => import("./Pages/SellerAdmin"));
+const SellerProfile = lazyWithRetry(() => import("./Pages/SellerProfile"));
+const SellerChat = lazyWithRetry(() => import("./Pages/SellerChat"));
 
 // Regular Components
 import Chatbot from "./Components/Chatbot";

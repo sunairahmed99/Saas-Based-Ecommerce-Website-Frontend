@@ -37,18 +37,17 @@ function ContactUs() {
       <motion.div className="contact-us-bg-fix" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.75 }}>
         <style>{`
           .contact-us-bg-fix {
-            min-height: 100vh;
+            min-height: calc(100vh - 80px);
             width: 100%;
             box-sizing: border-box;
             background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
             overflow-x: hidden;
-            padding-top: 0 !important;
+            padding: 80px 0;
             margin-top: 0 !important;
-            padding-bottom: 60px;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
           }
           .contact-content-flex {
