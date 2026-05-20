@@ -6,7 +6,7 @@ import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import HeroBanner from "../Components/Home/HeroBanner";
 import { FaStar, FaHeart, FaSearch, FaFilter, FaTimes, FaCheckCircle, FaExclamationCircle, FaUser, FaHome } from "react-icons/fa";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
 import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
@@ -107,6 +107,7 @@ const Shop = memo(() => {
     queryKey: ['shopProducts', { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam }],
     queryFn: fetchShopProducts,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const loading = productsLoading;
