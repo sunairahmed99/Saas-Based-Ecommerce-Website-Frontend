@@ -1,20 +1,34 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import { fetchcategories, fetchTrendingCategories } from '../Features/Backend/CategorySlice';
+import { fetchsubcategories } from '../Features/Backend/SubCategorySlice';
 import { fetchLatestProducts, fetchTrendingProducts, fetchFeaturedProducts, fetchproducts } from '../Features/Backend/ProductSlice';
 import { fetchHomeFlashDeals } from '../Features/Backend/FlashDealSlice';
 import { fetchBanners } from '../Features/Backend/BannerSlice';
 import { fetchTopPerformingSellers } from '../Features/Backend/SellerSlice';
 import { fetchActiveBoosts } from '../Features/Backend/ProductBoostSlice';
 import { fetchApprovedReviews } from '../Features/Backend/ReviewSlice';
+import { selectUser } from '../Features/Backend/UserSlice';
 import { motion, AnimatePresence } from 'framer-motion';
 import './SplashScreen.css';
 
-const NAVIGATE_TIME = 15000; // Always navigate at exactly 15 seconds
-const PROGRESS_DURATION = 16000; // Progress bar fills over 16 seconds
+// Helper to filter out dummy products matching the same criteria as Home/Shop pages
+const filterDummyProducts = (products) => {
+  if (!Array.isArray(products)) return [];
+  return products.filter(p => {
+    if (!p) return false;
+    const isPulseDummy = p.pname && p.pname.includes('Pulse');
+    return !isPulseDummy;
+  });
+};
 
 const SplashScreen = ({ onComplete }) => {
     const dispatch = useDispatch();
+    const queryClient = useQueryClient();
+    const user = useSelector(selectUser);
     const [progress, setProgress] = useState(0);
     const [statusText, setStatusText] = useState('Initializing...');
     const [isVisible, setIsVisible] = useState(true);
@@ -24,71 +38,126 @@ const SplashScreen = ({ onComplete }) => {
         isMountedRef.current = true;
         const startTime = Date.now();
 
-        // ─── 1. PROGRESS BAR: smooth fill over 16 seconds (visual only) ───
-        const progressInterval = setInterval(() => {
-            if (!isMountedRef.current) {
-                clearInterval(progressInterval);
-                return;
+        const loadStore = async () => {
+            const userId = user?.data?._id || user?._id || null;
+
+            // List of critical tasks that must succeed or complete before entering the app
+            const criticalTasks = [
+                {
+                    name: 'Categories',
+                    fn: () => dispatch(fetchcategories()).unwrap()
+                },
+                {
+                    name: 'Subcategories',
+                    fn: () => dispatch(fetchsubcategories()).unwrap()
+                },
+                {
+                    name: 'Banners',
+                    fn: () => dispatch(fetchBanners()).unwrap()
+                },
+                {
+                    name: 'Flash Deals',
+                    fn: () => dispatch(fetchHomeFlashDeals()).unwrap()
+                },
+                {
+                    name: 'Trending Products',
+                    fn: () => queryClient.prefetchQuery({
+                        queryKey: ['trendingProducts'],
+                        queryFn: async () => {
+                            const res = await axios.get(`${API_BASE_URL}/product/trending`);
+                            return filterDummyProducts(res.data?.data || []);
+                        },
+                        staleTime: 5 * 60 * 1000
+                    })
+                },
+                {
+                    name: 'Latest Products',
+                    fn: () => queryClient.prefetchQuery({
+                        queryKey: ['latestProducts'],
+                        queryFn: async () => {
+                            const res = await axios.get(`${API_BASE_URL}/product/latest`);
+                            return filterDummyProducts(res.data?.data || []);
+                        },
+                        staleTime: 5 * 60 * 1000
+                    })
+                }
+            ];
+
+            // If user is authenticated, prefetch recommendations
+            if (userId) {
+                criticalTasks.push({
+                    name: 'Recommended Products',
+                    fn: () => queryClient.prefetchQuery({
+                        queryKey: ['forYouProducts', userId],
+                        queryFn: async () => {
+                            const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
+                            return filterDummyProducts(res.data?.data || []);
+                        },
+                        staleTime: 5 * 60 * 1000
+                    })
+                });
             }
-            const elapsed = Date.now() - startTime;
-            const newProgress = Math.min(100, (elapsed / PROGRESS_DURATION) * 100);
-            setProgress(newProgress);
 
-            // Update status text based on progress
-            if (newProgress < 15) setStatusText('Initializing secure connection...');
-            else if (newProgress < 30) setStatusText('Fetching store categories...');
-            else if (newProgress < 50) setStatusText('Loading trending products...');
-            else if (newProgress < 70) setStatusText('Setting up your experience...');
-            else if (newProgress < 90) setStatusText('Finalizing...');
-            else setStatusText('Ready!');
+            const total = criticalTasks.length;
+            let completed = 0;
 
-            if (elapsed >= PROGRESS_DURATION) {
-                clearInterval(progressInterval);
-            }
-        }, 50);
+            const executeTask = async (task) => {
+                try {
+                    if (isMountedRef.current) {
+                        setStatusText(`Loading ${task.name}...`);
+                    }
+                    await task.fn();
+                    console.log(`Splash Prefetch Success: ${task.name}`);
+                } catch (err) {
+                    console.warn(`Splash Prefetch Failure: ${task.name}`, err);
+                } finally {
+                    completed++;
+                    if (isMountedRef.current) {
+                        setProgress(Math.round((completed / total) * 100));
+                    }
+                }
+            };
 
-        // ─── 2. API CALLS: fire all simultaneously, fire-and-forget ───
-        const safeFetch = (thunk) => {
-            dispatch(thunk).unwrap().catch((e) => {
-                console.warn('Pre-fetch non-critical failure:', e);
-            });
-        };
+            // Fire non-critical fetches in background (does not block splash screen transition)
+            const fetchBackgroundResources = () => {
+                dispatch(fetchTrendingCategories(10)).unwrap().catch(e => console.warn(e));
+                dispatch(fetchproducts()).unwrap().catch(e => console.warn(e));
+                dispatch(fetchTopPerformingSellers()).unwrap().catch(e => console.warn(e));
+                dispatch(fetchActiveBoosts()).unwrap().catch(e => console.warn(e));
+                dispatch(fetchApprovedReviews()).unwrap().catch(e => console.warn(e));
+            };
+            fetchBackgroundResources();
 
-        safeFetch(fetchcategories());
-        safeFetch(fetchTrendingCategories(10));
-        safeFetch(fetchBanners());
-        safeFetch(fetchLatestProducts());
-        safeFetch(fetchTrendingProducts());
-        safeFetch(fetchFeaturedProducts());
-        safeFetch(fetchproducts()); // Pre-fetch full product catalog for instant Shop page loads!
-        safeFetch(fetchHomeFlashDeals());
-        safeFetch(fetchTopPerformingSellers());
-        safeFetch(fetchActiveBoosts());
-        safeFetch(fetchApprovedReviews());
+            // Await all critical resources in parallel
+            await Promise.all(criticalTasks.map(executeTask));
 
-        // ─── 3. NAVIGATION: always at exactly 15 seconds (constant) ───
-        const navigationTimer = setTimeout(() => {
             if (!isMountedRef.current) return;
-            clearInterval(progressInterval);
-            setProgress(100);
-            setStatusText('Ready!');
 
-            // Small visual buffer then exit
+            // Enforce minimum animation time of 1.5s to prevent jarring fast flash
+            const elapsed = Date.now() - startTime;
+            const remaining = Math.max(0, 1500 - elapsed);
+
             setTimeout(() => {
                 if (!isMountedRef.current) return;
-                setIsVisible(false);
+                setProgress(100);
+                setStatusText('Ready!');
+
                 setTimeout(() => {
-                    if (isMountedRef.current && onComplete) onComplete();
-                }, 600);
-            }, 400);
-        }, NAVIGATE_TIME);
+                    if (!isMountedRef.current) return;
+                    setIsVisible(false);
+                    setTimeout(() => {
+                        if (isMountedRef.current && onComplete) onComplete();
+                    }, 600);
+                }, 400);
+            }, remaining);
+        };
+
+        loadStore();
 
         return () => {
             isMountedRef.current = false;
-            clearInterval(progressInterval);
-            clearTimeout(navigationTimer);
         };
-    }, [dispatch, onComplete]);
+    }, [dispatch, queryClient, onComplete, user]);
 
     return (
         <AnimatePresence>
