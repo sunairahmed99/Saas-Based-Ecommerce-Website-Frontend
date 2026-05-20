@@ -60,6 +60,18 @@ const SplashScreen = ({ onComplete }) => {
                     fn: () => dispatch(fetchHomeFlashDeals()).unwrap()
                 },
                 {
+                    name: 'Top Categories',
+                    fn: () => dispatch(fetchTrendingCategories(10)).unwrap()
+                },
+                {
+                    name: 'Featured Products',
+                    fn: () => dispatch(fetchFeaturedProducts()).unwrap()
+                },
+                {
+                    name: 'Boosted Products',
+                    fn: () => dispatch(fetchActiveBoosts()).unwrap()
+                },
+                {
                     name: 'Trending Products',
                     fn: () => queryClient.prefetchQuery({
                         queryKey: ['trendingProducts'],
@@ -118,12 +130,10 @@ const SplashScreen = ({ onComplete }) => {
                 }
             };
 
-            // Fire non-critical fetches in background (does not block splash screen transition)
+            // Fire remaining non-critical fetches in background (does not block splash screen transition)
             const fetchBackgroundResources = () => {
-                dispatch(fetchTrendingCategories(10)).unwrap().catch(e => console.warn(e));
                 dispatch(fetchproducts()).unwrap().catch(e => console.warn(e));
                 dispatch(fetchTopPerformingSellers()).unwrap().catch(e => console.warn(e));
-                dispatch(fetchActiveBoosts()).unwrap().catch(e => console.warn(e));
                 dispatch(fetchApprovedReviews()).unwrap().catch(e => console.warn(e));
             };
             fetchBackgroundResources();
