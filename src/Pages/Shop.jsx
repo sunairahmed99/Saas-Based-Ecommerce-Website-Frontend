@@ -44,7 +44,7 @@ const Shop = memo(() => {
   const [sortBy, setSortBy] = useState("views");
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const productsPerPage = 40;
+  const productsPerPage = 15;
 
   // Memoized category options
   const categoryOptions = useMemo(() => [
