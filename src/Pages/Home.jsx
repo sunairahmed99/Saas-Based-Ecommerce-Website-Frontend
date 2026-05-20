@@ -41,32 +41,53 @@ const Home = memo(() => {
   };
 
   // TanStack Query for Trending Products
-  const { data: trendingProducts = [], isLoading: trendingLoading } = useQuery({
+  const { data: trendingProducts = [], isLoading: trendingLoading, error: trendingError } = useQuery({
     queryKey: ['trendingProducts'],
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/product/trending`);
-      return filterDummyProducts(res.data?.data || []);
+      try {
+        console.log("Fetching trending products...");
+        const res = await axios.get(`${API_BASE_URL}/product/trending`);
+        console.log("Trending products response:", res.data);
+        return filterDummyProducts(res.data?.data || []);
+      } catch (err) {
+        console.error("Error fetching trending products:", err);
+        throw err;
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
 
   // TanStack Query for Latest Products
-  const { data: latestProducts = [], isLoading: latestLoading } = useQuery({
+  const { data: latestProducts = [], isLoading: latestLoading, error: latestError } = useQuery({
     queryKey: ['latestProducts'],
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/product/latest`);
-      return filterDummyProducts(res.data?.data || []);
+      try {
+        console.log("Fetching latest products...");
+        const res = await axios.get(`${API_BASE_URL}/product/latest`);
+        console.log("Latest products response:", res.data);
+        return filterDummyProducts(res.data?.data || []);
+      } catch (err) {
+        console.error("Error fetching latest products:", err);
+        throw err;
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
 
   // TanStack Query for "For You" Products
-  const { data: forYouProducts = [], isLoading: forYouLoading } = useQuery({
+  const { data: forYouProducts = [], isLoading: forYouLoading, error: forYouError } = useQuery({
     queryKey: ['forYouProducts', userId],
     queryFn: async () => {
       if (!userId) return [];
-      const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
-      return filterDummyProducts(res.data?.data || []);
+      try {
+        console.log("Fetching for you products...");
+        const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
+        console.log("For you products response:", res.data);
+        return filterDummyProducts(res.data?.data || []);
+      } catch (err) {
+        console.error("Error fetching for you products:", err);
+        throw err;
+      }
     },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,
