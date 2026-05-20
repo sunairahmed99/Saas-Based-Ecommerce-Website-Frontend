@@ -284,7 +284,7 @@ const MyOrders = () => {
                 {orders.length} {orders.length === 1 ? "order" : "orders"}
               </span>
             </div>
-            <button className="refresh-btn" onClick={fetchOrders} disabled={loading}>
+            <button className="refresh-btn" onClick={() => { queryClient.invalidateQueries({ queryKey: ['myOrders'] }); fetchOrders(); }} disabled={loading}>
               Refresh
             </button>
           </div>

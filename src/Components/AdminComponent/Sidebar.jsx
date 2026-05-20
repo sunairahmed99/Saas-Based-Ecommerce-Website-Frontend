@@ -4,14 +4,16 @@ import { FaChartBar, FaUsers, FaBoxes, FaThList, FaUserTie, FaClipboardList, FaL
 import { FaStar, FaWallet, FaTags, FaUndoAlt } from 'react-icons/fa';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDispatch } from 'react-redux';
-import { logout } from '../../Features/Backend/UserSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout, selectUser } from '../../Features/Backend/UserSlice';
 import { useNavigate } from 'react-router-dom';
 
 function Sidebar({ setActivePage, activePage }) {
   const [open, setOpen] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const user = useSelector(selectUser);
+  const userData = user?.data || user;
 
   React.useEffect(() => {
     // Only set open to true if it's a desktop on initial load
@@ -240,7 +242,24 @@ function Sidebar({ setActivePage, activePage }) {
               exit={{ x: -300 }} 
               transition={{ type: 'spring', damping: 20, stiffness: 100 }}
             >
-              <div className="sidebar-logo-title">ADMIN PANEL</div>
+              <div className="sidebar-logo-title">
+                ADMIN PANEL
+                {userData && (
+                  <div className="admin-profile-section" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '15px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div className="admin-avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#00eaff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0a1428', fontWeight: 'bold', fontSize: '1.2rem', overflow: 'hidden', flexShrink: 0 }}>
+                      {userData.Image ? (
+                        <img src={userData.Image} alt="admin avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        userData.name ? userData.name.charAt(0).toUpperCase() : 'A'
+                      )}
+                    </div>
+                    <div className="admin-info" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <span className="admin-name" style={{ fontSize: '0.9rem', fontWeight: '600', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userData.name || 'Admin'}</span>
+                      <span className="admin-role" style={{ fontSize: '0.75rem', color: '#00eaff', fontWeight: '500' }}>{userData.role ? userData.role.toUpperCase() : 'ADMIN'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
               <nav className="sidebar-list">
                 {navItems.map(item => (
                   <button

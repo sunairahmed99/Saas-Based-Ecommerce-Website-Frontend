@@ -149,13 +149,27 @@ const AdminCoupons = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        code: formData.code.trim().toUpperCase(),
+        description: formData.description.trim(),
+        discountType: formData.discountType,
+        discountValue: Number(formData.discountValue),
+        minOrderAmount: formData.minOrderAmount ? Number(formData.minOrderAmount) : 0,
+        maxDiscount: formData.maxDiscount ? Number(formData.maxDiscount) : null,
+        startDate: formData.startDate ? formData.startDate : null,
+        endDate: formData.endDate ? formData.endDate : null,
+        totalUsageLimit: formData.totalUsageLimit ? Number(formData.totalUsageLimit) : null,
+        usagePerUser: formData.usagePerUser ? Number(formData.usagePerUser) : 1,
+        isActive: formData.isActive
+      };
+
       if (editingCoupon) {
         await updateCouponMutation.mutateAsync({
           id: editingCoupon._id,
-          updates: formData
+          updates: payload
         });
       } else {
-        await createCouponMutation.mutateAsync(formData);
+        await createCouponMutation.mutateAsync(payload);
       }
       resetForm();
     } catch (err) {
@@ -458,6 +472,7 @@ const AdminCoupons = () => {
                       className="admin-btn admin-btn-warning"
                       style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                       onClick={() => handleEdit(coupon)}
+                      title="Edit coupon"
                     >
                       <FaEdit />
                     </button>
@@ -465,8 +480,17 @@ const AdminCoupons = () => {
                       className="admin-btn admin-btn-primary"
                       style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                       onClick={() => handleToggleStatus(coupon._id)}
+                      title={coupon.isActive ? "Deactivate coupon" : "Activate coupon"}
                     >
                       {coupon.isActive ? <FaToggleOn /> : <FaToggleOff />}
+                    </button>
+                    <button
+                      className="admin-btn admin-btn-danger"
+                      style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                      onClick={() => handleDelete(coupon._id)}
+                      title="Delete coupon"
+                    >
+                      <FaTrash />
                     </button>
                   </div>
                 </td>

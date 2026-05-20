@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image } from "react-bootstrap";
-import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup } from "react-icons/fa";
+import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup, FaSpinner } from "react-icons/fa";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
@@ -781,12 +781,19 @@ function ProductDetail() {
               width: 100% !important;
               min-width: 100% !important;
               max-width: 100% !important;
-              padding: 0rem 0.8rem !important;
+              padding: 0.6rem 0.8rem !important;
               font-size: 0.9rem !important;
               flex-shrink: 0 !important;
               margin: 0 !important;
               box-sizing: border-box !important;
             }
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .animate-spin {
+            animation: spin 1s linear infinite;
           }
           .btn-primary {
             flex: 1;
@@ -1708,7 +1715,15 @@ function ProductDetail() {
                   onClick={handleAddToCart}
                   disabled={addingToCart || addCartLoading || product.pstatus !== "active" || product.totalStock < 1}
                 >
-                  <FaShoppingCart /> {addingToCart || addCartLoading ? "Adding..." : "Add to Cart"}
+                  {addingToCart || addCartLoading ? (
+                    <>
+                      <FaSpinner className="animate-spin" /> Adding...
+                    </>
+                  ) : (
+                    <>
+                      <FaShoppingCart /> Add to Cart
+                    </>
+                  )}
                 </motion.button>
               </div>
             )}

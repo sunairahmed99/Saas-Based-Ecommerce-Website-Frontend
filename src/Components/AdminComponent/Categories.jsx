@@ -21,7 +21,7 @@ function Categories() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (formData) => {
-      const res = await axios.post(`${API_BASE_URL}/category/add`, formData, {
+      const res = await axios.post(`${API_BASE_URL}/category/create`, formData, {
         headers: {
           auth_token: token,
           "Content-Type": "multipart/form-data",

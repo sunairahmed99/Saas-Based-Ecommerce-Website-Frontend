@@ -16,13 +16,16 @@ function ContactUs() {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting, isSubmitSuccessful } } = useForm();
   const [showToast, setShowToast] = React.useState(false);
   const [toastMsg, setToastMsg] = React.useState("");
+  const [showSuccess, setShowSuccess] = React.useState(false);
 
   const onSubmit = async (data) => {
     const result = await dispatch(createContact(data));
     if (createContact.fulfilled.match(result)) {
       setToastMsg("Your message has been sent!");
       setShowToast(true);
+      setShowSuccess(true);
       setTimeout(() => setShowToast(false), 2500);
+      setTimeout(() => setShowSuccess(false), 3000);
       reset();
     } else {
       setToastMsg(result.payload || "Unable to send message.");
@@ -305,7 +308,7 @@ function ContactUs() {
                   </Button>
                 </motion.div>
                 {submitError && <div style={{color:"#ff9b9b", marginTop:"8px"}}>{submitError}</div>}
-                {lastSubmitted && !submitError && (
+                {showSuccess && !submitError && (
                   <div style={{color:"#9efbb6", marginTop:"8px"}}>Saved successfully.</div>
                 )}
               </Form>

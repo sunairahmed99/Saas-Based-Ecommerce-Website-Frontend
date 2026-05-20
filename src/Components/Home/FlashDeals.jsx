@@ -150,16 +150,14 @@ const FlashDeals = memo(() => {
                   <Link to={`/product/${productId}`} className="product-card flash" style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="product-image">
                       <OptimizedImage src={fd.productId?.pimage1 || fd.productId?.pimage || "https://via.placeholder.com/180"} alt={fd.productId?.pname || "Product"} />
-                      {(user || seller || localStorage.getItem("token")) && (
-                        <button
-                          className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
-                          onClick={(e) => handleFavoriteClick(e, productId)}
-                          disabled={isProcessing}
-                          title={favorite ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <FaHeart />
-                        </button>
-                      )}
+                      <button
+                        className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
+                        onClick={(e) => handleFavoriteClick(e, productId)}
+                        disabled={isProcessing}
+                        title={favorite ? "Remove from favorites" : "Add to favorites"}
+                      >
+                        <FaHeart />
+                      </button>
                     </div>
                     <div className="product-body">
                       <h4>{fd.productId?.pname || "Product"}</h4>

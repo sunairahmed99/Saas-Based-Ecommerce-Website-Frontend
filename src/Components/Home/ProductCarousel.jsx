@@ -190,16 +190,14 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
                           <span className="pill pill-views">👁️ {views}</span>
                           <span className="pill pill-sold">🛒 {sold}</span>
                         </div>
-                        {(user || seller || localStorage.getItem("token")) && (
-                          <button
-                            className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
-                            onClick={(e) => handleFavoriteClick(e, productId)}
-                            disabled={isProcessing}
-                            title={favorite ? "Remove from favorites" : "Add to favorites"}
-                          >
-                            <FaHeart />
-                          </button>
-                        )}
+                        <button
+                          className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
+                          onClick={(e) => handleFavoriteClick(e, productId)}
+                          disabled={isProcessing}
+                          title={favorite ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <FaHeart />
+                        </button>
                       </div>
                       <div className="product-body">
                         <h4>{productName}</h4>

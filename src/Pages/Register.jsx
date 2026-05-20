@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { createUsers, selectUsersLoading, selectCreatedUser, selectUser, selectUsersError } from "../Features/Backend/UserSlice";
-import { createSeller, selectCreatedSeller, selectSellersError, selectSellersLoading } from "../Features/Backend/SellerSlice";
+import { createUsers, selectUsersLoading, selectCreatedUser, selectUser, selectUsersError, logout } from "../Features/Backend/UserSlice";
+import { createSeller, selectCreatedSeller, selectSellersError, selectSellersLoading, logoutSeller } from "../Features/Backend/SellerSlice";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
@@ -27,17 +27,39 @@ const Register = () => {
   const isSubmitting = accountType === "seller" ? sellerLoading : loading;
 
   React.useEffect(() => {
+    // If logged in as customer but registering as seller, log out customer first
     if (user) {
-      navigate("/");
-      return;
+      if (accountType === "seller") {
+        dispatch(logout());
+        localStorage.removeItem("token");
+        localStorage.removeItem("loginType");
+      } else {
+        navigate("/");
+        return;
+      }
     }
+
+    // If logged in as seller but registering as customer, log out seller first
+    const token = localStorage.getItem("token");
+    const loginType = localStorage.getItem("loginType");
+    if (token && loginType === "seller") {
+      if (accountType === "customer") {
+        dispatch(logoutSeller());
+        localStorage.removeItem("token");
+        localStorage.removeItem("loginType");
+      } else {
+        navigate("/");
+        return;
+      }
+    }
+
     if (createdUser) {
       navigate("/verifycode", { state: { accountType: "customer" } });
     }
     if (createdSeller) {
       navigate("/verifycode", { state: { accountType: "seller" } });
     }
-  }, [user, createdUser, createdSeller, navigate]);
+  }, [user, accountType, createdUser, createdSeller, navigate, dispatch]);
 
   const { register, handleSubmit, watch, formState: { errors }, reset } = useForm();
   const password = watch("password", "");

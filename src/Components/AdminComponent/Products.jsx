@@ -765,13 +765,15 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
       // Text search filter
       const f = filter.toLowerCase();
       const matchesSearch = !f ||
-        p?.pname?.toLowerCase().includes(f) ||
-        p?.pdescription?.toLowerCase().includes(f) ||
-        p?._id?.toLowerCase().includes(f);
+        p?.pname?.toLowerCase()?.includes(f) ||
+        p?.pdescription?.toLowerCase()?.includes(f) ||
+        p?._id?.toLowerCase()?.includes(f) ||
+        p?.sku?.toLowerCase()?.includes(f);
 
       // Seller filter
+      const sellerName = p?.sellerid?.name || p?.sellerid?.shopName || (typeof p?.sellerid === 'string' ? p?.sellerid : "");
       const matchesSeller = sellerFilter === "all" || sellerFilter === "" ||
-        (p?.sellerid?.name || p?.sellerid)?.toLowerCase().includes(sellerFilter.toLowerCase());
+        sellerName.toLowerCase().includes(sellerFilter.toLowerCase());
 
       // Category filter
       const matchesCategory = categoryFilter === "all" ||

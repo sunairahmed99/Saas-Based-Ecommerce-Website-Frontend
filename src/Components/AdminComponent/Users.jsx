@@ -89,11 +89,28 @@ function Users() {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
-  const handleToggleActive = (id) => {
+  const handleToggleActive = async (id) => {
+    // Instantly update UI locally
     const updated = users.map((u) =>
       u.id === id ? { ...u, activeStatus: !u.activeStatus } : u
     );
     setUsers(updated);
+
+    try {
+      const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+      await axios.patch(`${API_BASE_URL}/user/toggleactive`, 
+        { userId: id },
+        { headers: { auth_token: token } }
+      );
+    } catch (err) {
+      console.error("Error toggling user active status:", err);
+      // Revert if failed
+      const reverted = users.map((u) =>
+        u.id === id ? { ...u, activeStatus: u.activeStatus } : u
+      );
+      setUsers(reverted);
+      alert("Failed to update user status on backend: " + (err.response?.data?.message || err.message));
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -262,6 +279,13 @@ function Users() {
             </tbody>
           </Table>
           </div>
+          {totalPages > 1 && (
+            <ReusablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
+          )}
         </motion.div>
 
 

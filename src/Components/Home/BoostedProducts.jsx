@@ -199,6 +199,14 @@ const BoostedProducts = () => {
                       <span className="pill pill-views">👁️ {views}</span>
                       <span className="pill pill-sold">🛒 {sold || 0}</span>
                     </div>
+                    <button
+                      className={`favorite-btn ${isFavorite(productId) ? "active" : ""} ${processingIds.has(productId) ? "processing" : ""}`}
+                      onClick={(e) => handleFavoriteClick(e, productId)}
+                      disabled={processingIds.has(productId)}
+                      title={isFavorite(productId) ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <FaHeart />
+                    </button>
                   </div>
                   <div className="boost-body">
                     <div className="boost-name" title={name}>{name}</div>
@@ -417,6 +425,38 @@ const BoostedProducts = () => {
       </AnimatePresence>
 
       <style>{`
+        .favorite-btn {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255, 255, 255, 0.95);
+          color: #666;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.9rem;
+          transition: all 0.3s;
+          z-index: 10;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .favorite-btn:hover {
+          background: rgba(255, 255, 255, 1);
+          transform: scale(1.1);
+        }
+        .favorite-btn.active {
+          background: #ef4444;
+          color: white;
+        }
+        .favorite-btn.processing {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .favorite-toast {
           position: fixed;
           bottom: 2rem;

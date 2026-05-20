@@ -39,7 +39,7 @@ const SearchBar = () => {
       } else {
         setShowResults(false);
       }
-    }, 300); // 300ms delay
+    }, 150); // 150ms delay
   };
 
   // Handle search button click
@@ -93,6 +93,18 @@ const SearchBar = () => {
             <button onClick={handleSearchClick} disabled={searchLoading}>
               {searchLoading ? "..." : "Search"}
             </button>
+          </div>
+
+          {/* Search Suggestions */}
+          <div className="search-suggestions">
+            {["Electronics", "Fashion", "Shoes", "Bags", "Deals"].map((suggestion) => (
+              <button
+                key={suggestion}
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
           </div>
 
           {/* Search Results Dropdown */}

@@ -216,17 +216,24 @@ const Orders = () => {
     const statusKey = normalizeStatus(order.status);
     let matches = true;
     if (filterStatus && statusKey !== filterStatus) matches = false;
-    if (filterSeller && String(order.sellerId?._id || order.sellerId) !== String(filterSeller)) matches = false;
+
+    const sellerObj =
+      order.sellerId ||
+      order.seller ||
+      order.items?.find((it) => it?.sellerId)?.sellerId ||
+      null;
+    const sellerIdStr = String(sellerObj?._id || sellerObj || '');
+    const sellerName = sellerObj?.name || order.sellerName || '';
+
+    if (filterSeller && sellerIdStr !== String(filterSeller)) matches = false;
     if (search) {
       const lowerSearch = search.toLowerCase();
-      if (
-        !(order._id?.toLowerCase().includes(lowerSearch) ||
-          order.address?.fullName?.toLowerCase().includes(lowerSearch) ||
-          order.address?.city?.toLowerCase().includes(lowerSearch) ||
-          (order.sellerId?.name || order.sellerName || "")?.toLowerCase().includes(lowerSearch)
-        )) {
-        matches = false;
-      }
+      const matchesSearch = 
+        (order._id && order._id.toLowerCase().includes(lowerSearch)) ||
+        (order.address?.fullName && order.address.fullName.toLowerCase().includes(lowerSearch)) ||
+        (order.address?.city && order.address.city.toLowerCase().includes(lowerSearch)) ||
+        sellerName.toLowerCase().includes(lowerSearch);
+      if (!matchesSearch) matches = false;
     }
     return matches;
   });
@@ -747,21 +754,24 @@ const Orders = () => {
                 <td>{order.address?.fullName || "Customer"}, {order.address?.city || ""}</td>
                 <td>
                   <div className="order-items-column">
-                    {order.items?.map((item, idx) => (
-                      <div key={idx} className="order-item-mini">
-                        <img 
-                          src={item.image || item.productId?.pimage1 || "/placeholder.png"} 
-                          alt={item.name} 
-                          className="item-mini-img"
-                        />
-                        <div className="item-mini-info">
-                          <div className="item-mini-name" title={item.name || item.productId?.pname}>
-                            {item.name || item.productId?.pname || "Product"}
+                    {order.items?.map((item, idx) => {
+                      if (!item) return null;
+                      return (
+                        <div key={idx} className="order-item-mini">
+                          <img 
+                            src={item.image || item.productId?.pimage1 || "/placeholder.png"} 
+                            alt={item.name || "Product"} 
+                            className="item-mini-img"
+                          />
+                          <div className="item-mini-info">
+                            <div className="item-mini-name" title={item.name || item.productId?.pname}>
+                              {item.name || item.productId?.pname || "Product"}
+                            </div>
+                            <div className="item-mini-qty">Qty: {item.quantity || 1}</div>
                           </div>
-                          <div className="item-mini-qty">Qty: {item.quantity || 1}</div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {!order.items?.length && <span style={{color: '#6c757d'}}>No items found</span>}
                   </div>
                 </td>

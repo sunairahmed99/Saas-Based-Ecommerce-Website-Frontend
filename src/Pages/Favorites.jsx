@@ -81,10 +81,12 @@ const Favorites = () => {
 
   const getProductData = (favorite) => {
     const product = favorite.productId || {};
+    // If productId is a string (not populated), return fallback
+    const isPopulated = typeof product === 'object' && product._id;
     return {
       id: favorite._id,
-      productId: product._id || product,
-      name: product.pname || product.name || "Unknown Product",
+      productId: isPopulated ? product._id : (typeof favorite.productId === 'string' ? favorite.productId : favorite.productId),
+      name: isPopulated ? (product.pname || product.name || "Unknown Product") : "Product",
       price: product.prodisprice || product.pprice || product.price || 0,
       originalPrice: product.pactualprice || product.pprice || product.originalPrice || 0,
       image: product.pimage1 || product.image || "https://via.placeholder.com/400?text=No+Image",
@@ -92,7 +94,7 @@ const Favorites = () => {
       discount: product.pdis || product.discount || 0,
       rating: product.rating || 0,
       reviews: product.reviewCount || 0,
-      inStock: product.pqty > 0 && product.pstatus === "active",
+      inStock: (product.totalStock > 0 || product.pqty > 0) && product.pstatus === "active",
     };
   };
 

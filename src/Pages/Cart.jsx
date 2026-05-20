@@ -161,9 +161,13 @@ const Cart = () => {
       <>
         <Navbar />
         <div className="cart-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-            <FaShoppingCart size={40} style={{ color: "#00eaff", marginBottom: "1rem" }} />
-            <p style={{ color: "#fff", fontSize: "1.2rem" }}>Loading cart...</p>
+          <motion.div 
+            animate={{ opacity: [0.5, 1, 0.5] }} 
+            transition={{ duration: 1.5, repeat: Infinity }}
+            style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: "0.8rem" }}
+          >
+            <FaShoppingCart size={28} style={{ color: "#00eaff" }} />
+            <p style={{ color: "#fff", fontSize: "1.2rem", margin: 0, display: "flex", alignItems: "center" }}>Loading cart...</p>
           </motion.div>
         </div>
         <Footer />

@@ -55,6 +55,13 @@ const Shop = memo(() => {
     ...categories.map(cat => cat.name || cat.cname || "Category")
   ], [categories]);
 
+  const maxPriceLimit = useMemo(() => {
+    if (!rawProducts || rawProducts.length === 0) return 500000;
+    const prices = rawProducts.map(p => p.prodisprice || p.pprice || 0).filter(p => !isNaN(p));
+    if (prices.length === 0) return 500000;
+    return Math.max(...prices, 10000); // at least 10,000
+  }, [rawProducts]);
+
   // Track category visits for recommendations
   useEffect(() => {
     if (selectedCategory && selectedCategory !== "All") {
@@ -307,7 +314,7 @@ const Shop = memo(() => {
 
     // Price range filter
     filtered = filtered.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
+      (p) => p.price >= priceRange[0] && p.price <= (priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1])
     );
 
     // Rating filter
@@ -512,9 +519,9 @@ const Shop = memo(() => {
                 <input
                   type="number"
                   placeholder="Max"
-                  value={priceRange[1]}
+                  value={priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1]}
                   onChange={(e) =>
-                    setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value) || 1, priceRange[0]), 10000000)])
+                    setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value) || 1, priceRange[0]), maxPriceLimit)])
                   }
                   aria-label="Maximum price filter"
                 />
@@ -522,10 +529,10 @@ const Shop = memo(() => {
               <input
                 type="range"
                 min="1"
-                max="10000000"
-                value={priceRange[1]}
+                max={maxPriceLimit}
+                value={priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1]}
                 onChange={(e) =>
-                  setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value), 1), 10000000)])
+                  setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value), 1), maxPriceLimit)])
                 }
                 className="price-slider"
                 aria-label="Price range slider"

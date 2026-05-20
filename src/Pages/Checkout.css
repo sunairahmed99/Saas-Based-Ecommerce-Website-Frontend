@@ -325,6 +325,11 @@
   outline: none;
 }
 
+.field select option {
+  background: #1e2027;
+  color: #fff;
+}
+
 .coupon-row {
   display: flex;
   gap: 0.6rem;

@@ -1,6 +1,8 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const SellerCTA = () => {
+  const navigate = useNavigate();
   return (
     <>
       <section className="cta-grid">
@@ -12,7 +14,7 @@ const SellerCTA = () => {
             <li>Analytics dashboard</li>
             <li>Dedicated seller support</li>
           </ul>
-          <button className="btn-primary-hero">Start Selling</button>
+          <button className="btn-primary-hero" onClick={() => navigate('/register', { state: { accountType: 'seller' } })}>Start Selling</button>
         </div>
         <div className="cta-card app-cta">
           <h3>Download Our App</h3>

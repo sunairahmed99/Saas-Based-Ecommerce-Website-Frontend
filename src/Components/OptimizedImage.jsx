@@ -49,9 +49,9 @@ const OptimizedImage = memo(({
     onLoad?.();
   };
 
-  const handleError = () => {
+  const handleError = (e) => {
     setHasError(true);
-    onError?.();
+    onError?.(e);
   };
 
   return (
@@ -89,7 +89,7 @@ const OptimizedImage = memo(({
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: isLoaded ? 1 : 0,
+            opacity: (isLoaded || hasError) ? 1 : 0,
             transition: 'opacity 0.3s ease-in-out',
             transform: 'translateZ(0)', // Hardware acceleration
           }}

@@ -30,7 +30,7 @@ function SubCategories() {
 
   const createSubcategoryMutation = useMutation({
     mutationFn: async (formData) => {
-      const res = await axios.post(`${API_BASE_URL}/subcategory/add`, formData, {
+      const res = await axios.post(`${API_BASE_URL}/subcategory/create`, formData, {
         headers: {
           auth_token: token,
           "Content-Type": "multipart/form-data",
