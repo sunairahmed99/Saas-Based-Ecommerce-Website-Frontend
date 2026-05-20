@@ -18,13 +18,6 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
   const [processingIds, setProcessingIds] = useState(new Set());
   const [toast, setToast] = useState(null);
 
-  // Fetch favorites when user or seller is logged in
-  useEffect(() => {
-    if (user || seller || localStorage.getItem("token")) {
-      dispatch(fetchFavorites());
-    }
-  }, [dispatch, user, seller]);
-
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (toast) {
@@ -53,16 +46,6 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
 
     if (processingIds.has(productId)) return;
 
-    // Check if already favorite and show message
-    if (isFavorite(productId)) {
-      setToast({
-        type: "info",
-        message: "Already in favorites! Click again to remove.",
-        icon: <FaCheckCircle />
-      });
-      // Still allow removal
-    }
-
     setProcessingIds((prev) => new Set(prev).add(productId));
 
     try {
@@ -72,9 +55,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
           (fav) => (fav.productId?._id || fav.productId) === productId
         );
         if (favorite) {
-          const result = await dispatch(deleteFavorite({ favoriteId: favorite._id })).unwrap();
-          // Refetch favorites after deletion
-          dispatch(fetchFavorites());
+          const result = await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -84,8 +65,6 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
       } else {
         // Add to favorites
       const result = await dispatch(addToFavorites(productId)).unwrap();
-      // Refetch favorites to update UI
-        dispatch(fetchFavorites());
         setToast({
           type: "success",
           message: "Added to favorites!",

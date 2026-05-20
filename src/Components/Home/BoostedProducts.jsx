@@ -43,13 +43,6 @@ const BoostedProducts = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch favorites when user or seller is logged in
-  useEffect(() => {
-    if (user || seller || localStorage.getItem("token")) {
-      dispatch(fetchFavorites());
-    }
-  }, [dispatch, user, seller]);
-
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (toast) {
@@ -66,9 +59,12 @@ const BoostedProducts = () => {
   };
 
   // Handle favorite toggle
-  const handleFavoriteClick = async (e, productId) => {
+  const handleFavoriteClick = async (e, product) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const productId = product?._id || product?.id;
+    if (!productId) return;
 
     if (!user && !seller && !localStorage.getItem("token")) {
       window.location.href = "/login";
@@ -76,16 +72,6 @@ const BoostedProducts = () => {
     }
 
     if (processingIds.has(productId)) return;
-
-    // Check if already favorite and show message
-    if (isFavorite(productId)) {
-      setToast({
-        type: "info",
-        message: "Already in favorites! Click again to remove.",
-        icon: <FaCheckCircle />
-      });
-      // Still allow removal
-    }
 
     setProcessingIds((prev) => new Set(prev).add(productId));
 
@@ -96,9 +82,7 @@ const BoostedProducts = () => {
           (fav) => (fav.productId?._id || fav.productId) === productId
         );
         if (favorite) {
-          const result = await dispatch(deleteFavorite({ favoriteId: favorite._id })).unwrap();
-          // Refetch favorites after deletion
-          dispatch(fetchFavorites());
+          const result = await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -107,9 +91,7 @@ const BoostedProducts = () => {
         }
       } else {
         // Add to favorites
-        const result = await dispatch(addToFavorites(productId)).unwrap();
-        // Refetch favorites to update UI
-        dispatch(fetchFavorites());
+        const result = await dispatch(addToFavorites(product)).unwrap();
         setToast({
           type: "success",
           message: "Added to favorites!",
@@ -201,7 +183,7 @@ const BoostedProducts = () => {
                     </div>
                     <button
                       className={`favorite-btn ${isFavorite(productId) ? "active" : ""} ${processingIds.has(productId) ? "processing" : ""}`}
-                      onClick={(e) => handleFavoriteClick(e, productId)}
+                      onClick={(e) => handleFavoriteClick(e, product)}
                       disabled={processingIds.has(productId)}
                       title={isFavorite(productId) ? "Remove from favorites" : "Add to favorites"}
                     >

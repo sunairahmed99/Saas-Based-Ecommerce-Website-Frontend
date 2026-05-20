@@ -52,7 +52,7 @@ export const fetchFavorites = createAsyncThunk(
 // Add product to favorites
 export const addToFavorites = createAsyncThunk(
   "favorites/addToFavorites",
-  async (productId, { rejectWithValue, getState }) => {
+  async (productOrId, { rejectWithValue, getState }) => {
     try {
       const token = localStorage.getItem("token");
       const loginType = localStorage.getItem("loginType");
@@ -65,6 +65,8 @@ export const addToFavorites = createAsyncThunk(
       if (loginType === "seller") {
         return rejectWithValue("Sellers cannot add favorites");
       }
+
+      const productId = typeof productOrId === "object" ? productOrId._id : productOrId;
 
       const headers = {
         auth_token: token,
@@ -166,6 +168,7 @@ const FavoriteSlice = createSlice({
 
   initialState: {
     favorites: [],
+    previousFavorites: null, // backup for rollback
     loading: false,
     error: null,
     addLoading: false,
@@ -189,7 +192,10 @@ const FavoriteSlice = createSlice({
     builder
       // Fetch favorites
       .addCase(fetchFavorites.pending, (state) => {
-        state.loading = true;
+        // Only show loading spinner on first fetch (when no data exists yet)
+        if (state.favorites.length === 0) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchFavorites.fulfilled, (state, action) => {
@@ -201,44 +207,92 @@ const FavoriteSlice = createSlice({
         state.error = action.payload;
       })
       // Add to favorites
-      .addCase(addToFavorites.pending, (state) => {
+      .addCase(addToFavorites.pending, (state, action) => {
         state.addLoading = true;
         state.addError = null;
+        // Back up for rollback
+        state.previousFavorites = [...state.favorites];
+        // Optimistically add favorite
+        const productOrId = action.meta.arg;
+        const productId = typeof productOrId === "object" ? productOrId._id : productOrId;
+        const product = typeof productOrId === "object" ? productOrId : null;
+
+        if (productId) {
+          const exists = state.favorites.some(
+            (fav) => (fav.productId?._id || fav.productId) === productId
+          );
+          if (!exists) {
+            state.favorites.push({
+              _id: `temp-${Date.now()}`,
+              productId: product || productId,
+              isOptimistic: true
+            });
+          }
+        }
       })
       .addCase(addToFavorites.fulfilled, (state, action) => {
         state.addLoading = false;
         state.addError = null;
-        // Don't push here, favorites will be refetched
+        state.previousFavorites = null; // Clear backup
+        // Replace optimistic favorite with real one
+        if (action.payload) {
+          const productId = action.payload.productId?._id || action.payload.productId;
+          const productOrId = action.meta.arg;
+          const fullProduct = typeof productOrId === "object" ? productOrId : null;
+
+          state.favorites = state.favorites.map((fav) => {
+            const favProductId = fav.productId?._id || fav.productId;
+            if (favProductId === productId) {
+              return {
+                ...action.payload,
+                productId: fullProduct || fav.productId
+              };
+            }
+            return fav;
+          });
+        }
       })
       .addCase(addToFavorites.rejected, (state, action) => {
         state.addLoading = false;
         state.addError = action.payload;
+        // Rollback to previous state
+        if (state.previousFavorites) {
+          state.favorites = state.previousFavorites;
+          state.previousFavorites = null;
+        }
         console.error("Add to favorites rejected:", action.payload);
       })
       // Delete favorite
-      .addCase(deleteFavorite.pending, (state) => {
+      .addCase(deleteFavorite.pending, (state, action) => {
         state.deleteLoading = true;
         state.deleteError = null;
+        // Back up for rollback
+        state.previousFavorites = [...state.favorites];
+        // Optimistically remove from favorites array
+        const { favoriteId, productId } = action.meta.arg || {};
+        if (favoriteId) {
+          state.favorites = state.favorites.filter(
+            (fav) => fav._id !== favoriteId
+          );
+        } else if (productId) {
+          state.favorites = state.favorites.filter((fav) => {
+            const favProductId = fav.productId?._id || fav.productId;
+            return favProductId !== productId;
+          });
+        }
       })
       .addCase(deleteFavorite.fulfilled, (state, action) => {
         state.deleteLoading = false;
-        // Remove from favorites array
-        if (action.payload.favoriteId) {
-          state.favorites = state.favorites.filter(
-            (fav) => fav._id !== action.payload.favoriteId
-          );
-        } else if (action.payload.productId) {
-          state.favorites = state.favorites.filter(
-            (fav) => {
-              const favProductId = fav.productId?._id || fav.productId;
-              return favProductId !== action.payload.productId;
-            }
-          );
-        }
+        state.previousFavorites = null; // Clear backup
       })
       .addCase(deleteFavorite.rejected, (state, action) => {
         state.deleteLoading = false;
         state.deleteError = action.payload;
+        // Rollback to previous state
+        if (state.previousFavorites) {
+          state.favorites = state.previousFavorites;
+          state.previousFavorites = null;
+        }
       })
       // Check favorite
       .addCase(checkFavorite.pending, (state) => {

@@ -55,13 +55,6 @@ const Shop = memo(() => {
     ...categories.map(cat => cat.name || cat.cname || "Category")
   ], [categories]);
 
-  const maxPriceLimit = useMemo(() => {
-    if (!rawProducts || rawProducts.length === 0) return 500000;
-    const prices = rawProducts.map(p => p.prodisprice || p.pprice || 0).filter(p => !isNaN(p));
-    if (prices.length === 0) return 500000;
-    return Math.max(...prices, 10000); // at least 10,000
-  }, [rawProducts]);
-
   // Track category visits for recommendations
   useEffect(() => {
     if (selectedCategory && selectedCategory !== "All") {
@@ -141,14 +134,14 @@ const Shop = memo(() => {
     initialDataUpdatedAt: () => Date.now()
   });
 
-  const loading = productsLoading;
+  const maxPriceLimit = useMemo(() => {
+    if (!rawProducts || rawProducts.length === 0) return 500000;
+    const prices = rawProducts.map(p => p.prodisprice || p.pprice || 0).filter(p => !isNaN(p));
+    if (prices.length === 0) return 500000;
+    return Math.max(...prices, 10000); // at least 10,000
+  }, [rawProducts]);
 
-  // Fetch favorites when user or seller is logged in
-  useEffect(() => {
-    if (user || seller || localStorage.getItem("token")) {
-      dispatch(fetchFavorites());
-    }
-  }, [dispatch, user, seller]);
+  const loading = productsLoading;
 
   // Set breadcrumbs based on URL parameters
   useEffect(() => {
@@ -211,9 +204,12 @@ const Shop = memo(() => {
   }, [favorites]);
 
   // Memoized favorite toggle handler
-  const handleFavoriteClick = useCallback(async (e, productId) => {
+  const handleFavoriteClick = useCallback(async (e, product) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const productId = product?._id || product?.id;
+    if (!productId) return;
 
     if (!user && !seller && !localStorage.getItem("token")) {
       window.location.href = "/login";
@@ -221,15 +217,6 @@ const Shop = memo(() => {
     }
 
     if (processingIds.has(productId)) return;
-
-    // Check if already favorite and show message
-    if (isFavorite(productId)) {
-      setToast({
-        type: "info",
-        message: "Already in favorites! Click again to remove.",
-        icon: <FaCheckCircle />
-      });
-    }
 
     setProcessingIds((prev) => new Set(prev).add(productId));
 
@@ -239,8 +226,7 @@ const Shop = memo(() => {
           (fav) => (fav.productId?._id || fav.productId) === productId
         );
         if (favorite) {
-          await dispatch(deleteFavorite({ favoriteId: favorite._id })).unwrap();
-          dispatch(fetchFavorites());
+          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -248,8 +234,7 @@ const Shop = memo(() => {
           });
         }
       } else {
-        await dispatch(addToFavorites(productId)).unwrap();
-        dispatch(fetchFavorites());
+        await dispatch(addToFavorites(product)).unwrap();
         setToast({
           type: "success",
           message: "Added to favorites!",
@@ -270,7 +255,7 @@ const Shop = memo(() => {
         return newSet;
       });
     }
-  }, [user, seller, processingIds, isFavorite, dispatch]);
+  }, [user, seller, processingIds, isFavorite, dispatch, favorites]);
 
   // Memoized filtered and sorted products for performance
   const filteredProducts = useMemo(() => {
@@ -342,7 +327,7 @@ const Shop = memo(() => {
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, rawProducts]);
+  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, rawProducts, maxPriceLimit]);
 
   // Reset page to 1 when filters change
   useEffect(() => {
@@ -636,7 +621,7 @@ const Shop = memo(() => {
                       {(user || seller || localStorage.getItem("token")) && localStorage.getItem("loginType") !== "seller" && (
                         <button
                           className={`wishlist-btn ${isFavorite(product.id || product._id) ? "active" : ""} ${processingIds.has(product.id || product._id) ? "processing" : ""}`}
-                          onClick={(e) => handleFavoriteClick(e, product.id || product._id)}
+                          onClick={(e) => handleFavoriteClick(e, product)}
                           disabled={processingIds.has(product.id || product._id)}
                           title={isFavorite(product.id || product._id) ? "Remove from favorites" : "Add to favorites"}
                           aria-label={isFavorite(product.id || product._id) ? "Remove from favorites" : "Add to favorites"}

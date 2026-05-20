@@ -8,12 +8,14 @@ import Footer from "../Components/Home/Footer";
 import { FaHeart, FaTrash, FaShoppingBag, FaExclamationCircle } from "react-icons/fa";
 import {
   fetchFavorites,
+  selectFavorites,
+  selectFavoritesLoading,
+  selectFavoritesError,
+  deleteFavorite,
+  selectDeleteFavoriteLoading
 } from "../Features/Backend/FavoriteSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { selectSeller } from "../Features/Backend/SellerSlice";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { API_BASE_URL } from "../config";
 import OptimizedImage from "../Components/OptimizedImage";
 
 const Favorites = () => {
@@ -21,49 +23,13 @@ const Favorites = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
-  const queryClient = useQueryClient();
+  const favorites = useSelector(selectFavorites) || [];
+  const loading = useSelector(selectFavoritesLoading);
+  const error = useSelector(selectFavoritesError);
+  const deleteLoading = useSelector(selectDeleteFavoriteLoading);
   const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-  const loginType = localStorage.getItem("loginType");
 
   const [deletingId, setDeletingId] = useState(null);
-
-  const { data: favorites = [], isLoading: loading, error: queryError } = useQuery({
-    queryKey: ['favorites', token],
-    queryFn: async () => {
-      if (!token || loginType === 'seller') return [];
-      const res = await axios.get(`${API_BASE_URL}/favorite/getall`, {
-        headers: { auth_token: token }
-      });
-      return res.data?.data || [];
-    },
-    enabled: !!token && loginType !== 'seller',
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const deleteFavoriteMutation = useMutation({
-    mutationFn: async ({ favoriteId, productId }) => {
-      const headers = { auth_token: token };
-      if (favoriteId) {
-        await axios.delete(`${API_BASE_URL}/favorite/delete/${favoriteId}`, { headers });
-      } else {
-        await axios.delete(`${API_BASE_URL}/favorite/remove`, {
-          data: { productId },
-          headers
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorites', token] });
-      dispatch(fetchFavorites()); // Sync Redux count for Navbar
-    },
-    onError: (err) => {
-      console.error("Error deleting favorite:", err);
-      alert(err?.response?.data?.message || err?.message || "Failed to remove favorite. Please try again.");
-    }
-  });
-
-  const error = queryError?.response?.data?.message || queryError?.message || null;
-  const deleteLoading = deleteFavoriteMutation.isPending;
 
   // Check if user or seller is logged in
   useEffect(() => {
@@ -72,11 +38,16 @@ const Favorites = () => {
     }
   }, [user, seller, navigate, token]);
 
-  const handleDelete = (favoriteId, productId) => {
+  const handleDelete = async (favoriteId, productId) => {
     setDeletingId(favoriteId);
-    deleteFavoriteMutation.mutate({ favoriteId, productId }, {
-      onSettled: () => setDeletingId(null)
-    });
+    try {
+      await dispatch(deleteFavorite({ favoriteId, productId })).unwrap();
+    } catch (err) {
+      console.error("Error deleting favorite:", err);
+      alert(err || "Failed to remove favorite. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getProductData = (favorite) => {
@@ -141,7 +112,7 @@ const Favorites = () => {
           transition={{ duration: 0.5 }}
         >
           {/* Content */}
-          {loading ? (
+          {loading && favorites.length === 0 ? (
             <motion.div
               className="loading-container"
               initial={{ opacity: 0 }}
@@ -192,7 +163,11 @@ const Favorites = () => {
               <AnimatePresence>
                 {favorites
                   .filter(favorite => {
+                    // Allow optimistic entries (just added) and active products
+                    if (favorite.isOptimistic) return true;
                     const product = favorite.productId || {};
+                    // If productId is a string (not populated), show it
+                    if (typeof product === 'string') return true;
                     return product.pstatus === "active";
                   })
                   .map((favorite) => {

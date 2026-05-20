@@ -106,7 +106,6 @@ function ProductDetail() {
 
     if (token && (loginType === "user" || loginType === "google") && user) {
       dispatch(fetchCartItems());
-      dispatch(fetchFavorites());
       dispatch(fetchUserOrderedProducts());
     }
   }, [dispatch, user]);
@@ -394,7 +393,6 @@ function ProductDetail() {
       if (isInFavorites) {
         // Remove from favorites
         await dispatch(deleteFavorite({ productId: product._id })).unwrap();
-        dispatch(fetchFavorites()); // Refresh favorites list
 
         setToast({
           type: "success",
@@ -402,9 +400,8 @@ function ProductDetail() {
           icon: <FaCheckCircle />,
         });
       } else {
-        // Add to favorites
-        await dispatch(addToFavorites(product._id)).unwrap();
-        dispatch(fetchFavorites()); // Refresh favorites list
+        // Add to favorites (passing full product object for instant optimistic rendering in Favorites page)
+        await dispatch(addToFavorites(product)).unwrap();
 
         setToast({
           type: "success",

@@ -20,13 +20,6 @@ const FlashDeals = memo(() => {
   const [toast, setToast] = useState(null);
   const scrollRef = useRef(null);
 
-  // Fetch favorites when user or seller is logged in
-  useEffect(() => {
-    if (user || seller || localStorage.getItem("token")) {
-      dispatch(fetchFavorites());
-    }
-  }, [dispatch, user, seller]);
-
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (toast) {
@@ -65,15 +58,6 @@ const FlashDeals = memo(() => {
 
     if (processingIds.has(productId)) return;
 
-    // Check if already favorite and show message
-    if (isFavorite(productId)) {
-      setToast({
-        type: "info",
-        message: "Already in favorites! Click again to remove.",
-        icon: <FaCheckCircle />
-      });
-    }
-
     setProcessingIds((prev) => new Set(prev).add(productId));
 
     try {
@@ -82,9 +66,7 @@ const FlashDeals = memo(() => {
           (fav) => (fav.productId?._id || fav.productId) === productId
         );
         if (favorite) {
-          await dispatch(deleteFavorite({ favoriteId: favorite._id })).unwrap();
-          // Refetch favorites after deletion
-          dispatch(fetchFavorites());
+          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -93,8 +75,6 @@ const FlashDeals = memo(() => {
         }
       } else {
         await dispatch(addToFavorites(productId)).unwrap();
-        // Refetch favorites to update UI
-        dispatch(fetchFavorites());
         setToast({
           type: "success",
           message: "Added to favorites!",
