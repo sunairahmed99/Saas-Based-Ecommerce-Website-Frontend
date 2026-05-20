@@ -18,6 +18,7 @@ import { fetchSeller, selectSellers } from "../Features/Backend/SellerSlice";
 import { fetchBanners, selectBanners } from "../Features/Backend/BannerSlice";
 import SEOHead from "../Components/SEOHead";
 import { trackCategoryVisit } from "../utils/userBehavior";
+import { selectProducts } from "../Features/Backend/ProductSlice";
 
 const Shop = memo(() => {
   const dispatch = useDispatch();
@@ -31,6 +32,7 @@ const Shop = memo(() => {
   const subcategories = useSelector(selectsubcategories) || [];
   const sellers = useSelector(selectSellers) || [];
   const dynamicBanners = useSelector(selectBanners) || [];
+  const reduxProducts = useSelector(selectProducts) || [];
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [processingIds, setProcessingIds] = useState(new Set());
   const [toast, setToast] = useState(null);
@@ -108,6 +110,27 @@ const Shop = memo(() => {
     queryFn: fetchShopProducts,
     staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
+    initialData: () => {
+      if (reduxProducts && reduxProducts.length > 0) {
+        if (subcategoryIdParam) {
+          return reduxProducts.filter(p => 
+            p && (p.subcatid === subcategoryIdParam || p.subcatid?._id === subcategoryIdParam)
+          );
+        } else if (categoryIdParam) {
+          return reduxProducts.filter(p => 
+            p && (p.catid === categoryIdParam || p.catid?._id === categoryIdParam)
+          );
+        } else if (sellerIdParam) {
+          return reduxProducts.filter(p => 
+            p && (p.sellerid === sellerIdParam || p.sellerid?._id === sellerIdParam)
+          );
+        } else if (!searchQueryParam) {
+          return reduxProducts;
+        }
+      }
+      return undefined;
+    },
+    initialDataUpdatedAt: () => Date.now()
   });
 
   const loading = productsLoading;
