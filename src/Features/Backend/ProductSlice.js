@@ -4,12 +4,22 @@ import { API_BASE_URL } from '../../config';
 
 const API_URL = `${API_BASE_URL}/product`;
 
+// Helper to filter out dummy products with broken loremflickr images
+const filterDummyProducts = (products) => {
+  if (!Array.isArray(products)) return products;
+  return products.filter(p => {
+    const isLoremFlickr = p.pimage1 && p.pimage1.includes('loremflickr.com');
+    const isPulseDummy = p.pname && p.pname.includes('Pulse');
+    return !isLoremFlickr && !isPulseDummy;
+  });
+};
+
 export const fetchproducts = createAsyncThunk(
   "products/fetchproducts",
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/getall`);
-      return res.data.data; // Array of products
+      return filterDummyProducts(res.data.data); // Array of products
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -21,7 +31,7 @@ export const fetchRelatedProducts = createAsyncThunk(
   async ({ productId, catId }, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/related`, { params: { productId, catId } });
-      return res.data.data;
+      return filterDummyProducts(res.data.data);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -33,7 +43,7 @@ export const fetchLatestProducts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/latest`);
-      return res.data.data;
+      return filterDummyProducts(res.data.data);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -50,7 +60,7 @@ export const fetchSellerProducts = createAsyncThunk(
           "seller_id": sellerId,
         },
       });
-      return res.data.data;
+      return filterDummyProducts(res.data.data);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -150,7 +160,7 @@ export const fetchTrendingProducts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/trending`);
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -189,7 +199,7 @@ export const fetchForYouProducts = createAsyncThunk(
         return []; // Return empty array if no userId
       }
       const res = await axios.get(`${API_URL}/foryou/${userId}`);
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       // If error, return empty array instead of rejecting (user might not have viewed products)
       return [];
@@ -203,7 +213,7 @@ export const fetchProductsByCategory = createAsyncThunk(
   async (categoryId, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/category/${categoryId}`);
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -216,7 +226,7 @@ export const fetchProductsBySubcategory = createAsyncThunk(
   async (subcategoryId, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/subcategory/${subcategoryId}`);
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -234,7 +244,7 @@ export const fetchProductsBySeller = createAsyncThunk(
           auth_token: token
         }
       });
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
@@ -252,7 +262,7 @@ export const searchProducts = createAsyncThunk(
       const res = await axios.get(`${API_URL}/search`, {
         params: { query: query.trim() }
       });
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Search failed");
     }
@@ -266,7 +276,7 @@ export const fetchFeaturedProducts = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(`${API_URL}/featured`);
-      return res.data.data || [];
+      return filterDummyProducts(res.data.data || []);
     } catch (err) {
       return rejectWithValue(err?.message || "Something went wrong");
     }
