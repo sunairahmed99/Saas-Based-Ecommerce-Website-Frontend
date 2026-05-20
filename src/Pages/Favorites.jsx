@@ -96,7 +96,7 @@ const Favorites = () => {
       scale: 0.8,
       x: -100,
       transition: {
-        duration: 0.3,
+        duration: 0.15,
       },
     },
   };
@@ -203,7 +203,7 @@ const Favorites = () => {
                         <motion.button
                           className={`delete-button ${isDeleting ? "deleting" : ""}`}
                           onClick={() => handleDelete(favorite._id, product.productId)}
-                          disabled={isDeleting || deleteLoading}
+                          disabled={isDeleting}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                         >
