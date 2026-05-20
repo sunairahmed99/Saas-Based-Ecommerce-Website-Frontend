@@ -6,7 +6,9 @@ import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import HeroBanner from "../Components/Home/HeroBanner";
 import { FaStar, FaHeart, FaSearch, FaFilter, FaTimes, FaCheckCircle, FaExclamationCircle, FaUser, FaHome } from "react-icons/fa";
-import { fetchproducts, selectProducts, selectProductsLoading, fetchProductsByCategory, fetchProductsBySubcategory, fetchProductsBySeller, searchProducts, selectSearchResults, selectSearchLoading, selectProductsBySeller } from "../Features/Backend/ProductSlice";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
 import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { selectSeller } from "../Features/Backend/SellerSlice";
@@ -21,11 +23,7 @@ const Shop = memo(() => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const allProducts = useSelector(selectProducts) || [];
-  const sellerProducts = useSelector(selectProductsBySeller) || [];
-  const loading = useSelector(selectProductsLoading);
-  const searchResults = useSelector(selectSearchResults) || [];
-  const searchLoading = useSelector(selectSearchLoading);
+
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
   const favorites = useSelector(selectFavorites) || [];
@@ -81,27 +79,37 @@ const Shop = memo(() => {
     }
   }, [dispatch, categories?.length, subcategories?.length, sellers?.length, dynamicBanners?.length]);
 
-  // Handle URL search parameters and fetch products
-  useEffect(() => {
-    const categoryId = searchParams.get('category');
-    const subcategoryId = searchParams.get('subcategory');
-    const sellerId = searchParams.get('seller');
-    const searchQuery = searchParams.get('search');
+  const categoryIdParam = searchParams.get('category');
+  const subcategoryIdParam = searchParams.get('subcategory');
+  const sellerIdParam = searchParams.get('seller');
+  const searchQueryParam = searchParams.get('search');
 
-    if (searchQuery) {
-      dispatch(searchProducts(searchQuery));
-    } else if (sellerId) {
-      dispatch(fetchProductsBySeller(sellerId));
-    } else if (subcategoryId) {
-      dispatch(fetchProductsBySubcategory(subcategoryId));
-    } else if (categoryId) {
-      dispatch(fetchProductsByCategory(categoryId));
-    } else {
-      if (!allProducts || allProducts.length === 0) {
-        dispatch(fetchproducts());
-      }
+  const fetchShopProducts = async () => {
+    let url = `${API_BASE_URL}/product/getall`;
+    let config = {};
+
+    if (searchQueryParam) {
+      url = `${API_BASE_URL}/product/search`;
+      config.params = { query: searchQueryParam };
+    } else if (sellerIdParam) {
+      url = `${API_BASE_URL}/product/seller/${sellerIdParam}`;
+    } else if (subcategoryIdParam) {
+      url = `${API_BASE_URL}/product/subcategory/${subcategoryIdParam}`;
+    } else if (categoryIdParam) {
+      url = `${API_BASE_URL}/product/category/${categoryIdParam}`;
     }
-  }, [dispatch, searchParams, allProducts?.length]);
+
+    const res = await axios.get(url, config);
+    return res.data?.data || [];
+  };
+
+  const { data: rawProducts = [], isLoading: productsLoading } = useQuery({
+    queryKey: ['shopProducts', { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam }],
+    queryFn: fetchShopProducts,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const loading = productsLoading;
 
   // Fetch favorites when user or seller is logged in
   useEffect(() => {
@@ -234,33 +242,15 @@ const Shop = memo(() => {
 
   // Memoized filtered and sorted products for performance
   const filteredProducts = useMemo(() => {
-    // Check if we're using search results from URL or local products
-    const searchQueryParam = searchParams.get('search');
-    const sellerIdParam = searchParams.get('seller');
-    const categoryIdParam = searchParams.get('category');
-    const subcategoryIdParam = searchParams.get('subcategory');
-    
-    const isSearchMode = !!searchQueryParam;
-    const isSellerMode = !!sellerIdParam;
-    const isCategoryMode = !!categoryIdParam;
-    const isSubcategoryMode = !!subcategoryIdParam;
-
-    // Use appropriate source based on mode
-    let sourceProducts;
-    if (isSearchMode) {
-      sourceProducts = searchResults;
-    } else if (isSellerMode) {
-      sourceProducts = sellerProducts;
-    } else if (isCategoryMode || isSubcategoryMode) {
-      // In category/subcategory mode, ProductSlice already filtered them into searchResults 
-      // or we can use allProducts if searchResults is empty but we have them loaded
-      sourceProducts = searchResults.length > 0 ? searchResults : allProducts;
-    } else {
-      sourceProducts = allProducts;
-    }
+    // Filter out dummy items directly
+    const validProducts = Array.isArray(rawProducts) ? rawProducts.filter(p => {
+      const isLoremFlickr = p.pimage1 && p.pimage1.includes('loremflickr.com');
+      const isPulseDummy = p.pname && p.pname.includes('Pulse');
+      return !isLoremFlickr && !isPulseDummy;
+    }) : [];
 
     // Filter to show only active products
-    const activeProducts = sourceProducts.filter(product => product.pstatus === "active");
+    const activeProducts = validProducts.filter(product => product.pstatus === "active");
 
     let filtered = activeProducts.map((p) => ({
       ...p,
