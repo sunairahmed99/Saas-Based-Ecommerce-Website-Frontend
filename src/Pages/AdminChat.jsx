@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import { FaUser, FaPaperPlane, FaSearch, FaCircle, FaArrowLeft, FaPaperclip, FaSmile, FaEllipsisV, FaComments } from 'react-icons/fa';;
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FaUser, FaPaperPlane, FaSearch, FaCircle, FaArrowLeft, FaPaperclip, FaSmile, FaEllipsisV, FaComments } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
 import './AdminChat.css';
 
 const API_BASE = `${API_BASE_URL}`;
 
 const AdminChat = () => {
-    const [users, setUsers] = useState([]);
+    const queryClient = useQueryClient();
+    const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+    
     const [selectedUser, setSelectedUser] = useState(null);
-    const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,33 +31,29 @@ const AdminChat = () => {
         }, 100);
     };
 
-    const fetchUsers = async () => {
-        try {
-            const token = localStorage.getItem("token");
+    const { data: users = [] } = useQuery({
+        queryKey: ['admin-chat-users'],
+        queryFn: async () => {
             const res = await axios.get(`${API_BASE}/api/chat/admin/users`, {
                 headers: { auth_token: token }
             });
-            if (res.data && res.data.success) {
-                setUsers(res.data.data);
-            }
-        } catch (error) {
-            console.error('Error fetching chat users:', error);
-        }
-    };
+            return res.data?.data || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
-    const fetchHistory = async (userId) => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get(`${API_BASE}/api/chat/messages/${userId}`, {
+    const { data: messages = [] } = useQuery({
+        queryKey: ['admin-chat-messages', selectedUser?._id],
+        queryFn: async () => {
+            if (!selectedUser?._id) return [];
+            const res = await axios.get(`${API_BASE}/api/chat/messages/${selectedUser._id}`, {
                 headers: { auth_token: token }
             });
-            if (res.data && res.data.success) {
-                setMessages(res.data.data);
-            }
-        } catch (error) {
-            console.error('Error fetching history:', error);
-        }
-    };
+            return res.data?.data || [];
+        },
+        enabled: !!selectedUser?._id,
+        staleTime: 5 * 60 * 1000,
+    });
 
     useEffect(() => {
         scrollToBottom();
@@ -66,29 +64,27 @@ const AdminChat = () => {
         socketRef.current = newSocket;
         setSocket(newSocket);
 
-        // Fetch user list on mount
-        fetchUsers();
-
         newSocket.on('receive_message', (message) => {
             // Check if message belongs to current conversation using the ref
             const currentSelected = selectedUserRef.current;
             if (currentSelected && (message.sender == currentSelected._id || message.receiver == currentSelected._id)) {
-                setMessages((prev) => [...prev, message]);
+                queryClient.setQueryData(['admin-chat-messages', currentSelected._id], (oldData) => {
+                    return [...(oldData || []), message];
+                });
             }
             // Refresh user list for last message updates
-            fetchUsers();
+            queryClient.invalidateQueries({ queryKey: ['admin-chat-users'] });
         });
 
         newSocket.on('new_chat_notification', () => {
-            fetchUsers();
+            queryClient.invalidateQueries({ queryKey: ['admin-chat-users'] });
         });
 
         return () => newSocket.close();
-    }, []);
+    }, [queryClient]);
 
     const handleSelectUser = (user) => {
         setSelectedUser(user);
-        fetchHistory(user._id);
         if (socketRef.current) {
             socketRef.current.emit('admin_join_user', user._id);
         }

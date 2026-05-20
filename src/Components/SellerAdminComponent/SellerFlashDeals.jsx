@@ -2,14 +2,9 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Table, Button, Form, Spinner } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  fetchSellerFlashDeals,
-  requestFlashDeal,
-  deleteFlashDeal,
-  selectSellerDeals,
-  selectFlashDealLoading,
-  selectFlashDealError
-} from "../../Features/Backend/FlashDealSlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../../config";
 import { fetchSellerProducts, selectProducts } from "../../Features/Backend/ProductSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import { FaBolt, FaTag, FaPlus, FaCheckCircle, FaTrash } from 'react-icons/fa';
@@ -23,14 +18,61 @@ const statusColor = (status) => {
 
 const SellerFlashDeals = () => {
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const seller = useSelector(selectSeller);
   const sellerData = seller?.data || seller;
   const sellerId = sellerData?._id;
 
-  const deals = useSelector(selectSellerDeals) || [];
-  const products = useSelector(selectProducts) || [];
-  const loading = useSelector(selectFlashDealLoading);
-  const error = useSelector(selectFlashDealError);
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+
+  const { data: deals = [], isLoading: loadingDeals, error: errorDeals } = useQuery({
+    queryKey: ['seller-flashdeals', sellerId],
+    queryFn: async () => {
+      if (!sellerId) return [];
+      const res = await axios.get(`${API_BASE_URL}/flashdeal/seller/${sellerId}`);
+      return res.data?.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ['products', true, sellerId],
+    queryFn: async () => {
+      if (!sellerId) return [];
+      const res = await axios.get(`${API_BASE_URL}/product/getsellerproduct`, {
+        headers: { seller_id: sellerId, auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const requestDealMutation = useMutation({
+    mutationFn: async ({ sellerId, productId }) => {
+      const res = await axios.post(`${API_BASE_URL}/flashdeal/add`, { sellerId, productId });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-flashdeals'] });
+    }
+  });
+
+  const deleteDealMutation = useMutation({
+    mutationFn: async ({ sellerId, flashDealId }) => {
+      const res = await axios.delete(`${API_BASE_URL}/flashdeal/remove`, {
+        data: { sellerId, flashDealId }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-flashdeals'] });
+    }
+  });
+
+  const loading = loadingDeals || loadingProducts || requestDealMutation.isPending || deleteDealMutation.isPending;
+  const error = errorDeals?.message || requestDealMutation.error?.message || deleteDealMutation.error?.message;
 
   const [selectedProduct, setSelectedProduct] = useState("");
   const [filter, setFilter] = useState("");
@@ -74,11 +116,8 @@ const SellerFlashDeals = () => {
   };
 
   useEffect(() => {
-    if (sellerId) {
-      dispatch(fetchSellerFlashDeals(sellerId));
-      dispatch(fetchSellerProducts(sellerId));
-    }
-  }, [dispatch, sellerId]);
+    // Redux fetch removed, React Query handles it automatically via useQuery
+  }, [sellerId]);
 
   // Filter out products already in a flashdeal request (pending/approved)
   const usedProductIds = deals.map((fd) => fd.productId?._id || fd.productId);
@@ -119,13 +158,10 @@ const SellerFlashDeals = () => {
     e.preventDefault();
     if (!selectedProduct || deals.length >= 3) return;
     try {
-      await dispatch(
-        requestFlashDeal({ sellerId, productId: selectedProduct })
-      ).unwrap();
+      await requestDealMutation.mutateAsync({ sellerId, productId: selectedProduct });
       setToast({ type: "success", message: "Flash deal requested successfully!" });
       setSelectedProduct("");
       setShowAddForm(false);
-      dispatch(fetchSellerFlashDeals(sellerId));
     } catch (err) {
       setToast({ type: "danger", message: typeof err === "string" ? err : err?.message || "Error requesting flash deal" });
     }
@@ -136,9 +172,8 @@ const SellerFlashDeals = () => {
       return;
     }
     try {
-      await dispatch(deleteFlashDeal({ sellerId, flashDealId })).unwrap();
+      await deleteDealMutation.mutateAsync({ sellerId, flashDealId });
       setToast({ type: "success", message: "Flash deal deleted successfully! You can now add another product." });
-      dispatch(fetchSellerFlashDeals(sellerId));
     } catch (err) {
       setToast({ type: "danger", message: typeof err === "string" ? err : err?.message || "Error deleting flash deal" });
     }

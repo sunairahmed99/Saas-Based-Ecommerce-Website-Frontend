@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Form, Modal, Alert, Tabs, Tab, Card, Row, Col, Badge } from "react-bootstrap";
+import { Table, Button, Form, Modal, Alert, Tabs, Tab, Card, Row, Col, Badge, Spinner } from "react-bootstrap";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import { API_BASE_URL } from '../../config';
 import ReusablePagination from "../ReusablePagination";
@@ -11,16 +12,14 @@ const API_BASE = `${API_BASE_URL}`;
 
 function SellerInventory() {
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const seller = useSelector(selectSeller);
   const sellerData = seller?.data;
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [activeTab, setActiveTab] = useState("overview");
-  const [inventoryData, setInventoryData] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState([]);
   const [toast, setToast] = useState(null);
-  const [reportsLoading, setReportsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -38,22 +37,38 @@ function SellerInventory() {
   const [bulkUpdates, setBulkUpdates] = useState("");
   const [bulkResults, setBulkResults] = useState(null);
 
-  // Reports data
-  const [reports, setReports] = useState({
-    summary: null,
+  const { data: inventoryData = [], isLoading: loading } = useQuery({
+    queryKey: ['seller-inventory', sellerData?._id],
+    queryFn: async () => {
+      if (!sellerData?._id) return [];
+      const res = await axios.get(`${API_BASE_URL}/product/seller`, {
+        headers: { "seller_id": sellerData._id, "auth_token": token }
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!sellerData?._id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: alerts = [] } = useQuery({
+    queryKey: ['seller-alerts', sellerData?._id],
+    queryFn: async () => {
+      if (!sellerData?._id) return [];
+      const res = await axios.get(`${API_BASE_URL}/inventory/alerts`, {
+        headers: { "auth_token": token }
+      });
+      return res.data?.data?.alerts || [];
+    },
+    enabled: !!sellerData?._id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const safeReports = {
+    summary: {},
     fastMoving: [],
     slowMoving: [],
     outOfStock: [],
     lowStock: []
-  });
-
-  // Initialize with empty arrays if undefined
-  const safeReports = {
-    summary: reports.summary || {},
-    fastMoving: reports.fastMoving || [],
-    slowMoving: reports.slowMoving || [],
-    outOfStock: reports.outOfStock || [],
-    lowStock: reports.lowStock || []
   };
 
   const exportReport = async (reportType, filename) => {
@@ -94,68 +109,8 @@ function SellerInventory() {
     }
   };
 
-  useEffect(() => {
-    if (sellerData?._id) {
-      loadInventoryData();
-      loadAlerts();
-      loadReports();
-    }
-  }, [sellerData]);
-
-  // Force reload reports when inventory data changes
-  useEffect(() => {
-    if (sellerData?._id && inventoryData.length >= 0) {
-      loadReports();
-    }
-  }, [inventoryData.length, sellerData]);
-
-  const loadInventoryData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/product/seller`, {
-        headers: {
-          "seller_id": sellerData._id,
-          "auth_token": token
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.success) {
-        setInventoryData(data.data || []);
-      }
-    } catch (error) {
-      console.error("Error loading inventory:", error);
-      setToast({ type: "danger", message: "Failed to load inventory data" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAlerts = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/inventory/alerts`, {
-        headers: {
-          "auth_token": token
-        }
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.success) {
-        setAlerts(data.data?.alerts || []);
-      }
-    } catch (error) {
-      console.error("Error loading alerts:", error);
-    }
-  };
-
   // Calculate product performance metrics from orders
-  const calculateProductMetrics = async (periodDays = 30) => {
+  const calculateProductMetrics = async (periodDays = 30, currentInventoryData = []) => {
     try {
       const token = localStorage.getItem("token");
       const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
@@ -257,7 +212,7 @@ function SellerInventory() {
         .slice(0, 10)
         .map(product => {
           // Get current stock for worst products
-          const inventoryProduct = inventoryData.find(p => p._id === product.productId);
+          const inventoryProduct = currentInventoryData.find(p => p._id === product.productId);
           return {
             productId: product.productId,
             productName: product.productName,
@@ -377,112 +332,102 @@ function SellerInventory() {
     }
   };
 
-  const loadReports = async () => {
-    try {
-      setReportsLoading(true);
-      const token = localStorage.getItem("token");
-
-      // Calculate summary data using same logic as dashboard - defaulting to all time (3650 days)
+  const { data: reportsData, isLoading: reportsLoading } = useQuery({
+    queryKey: ['seller-reports', sellerData?._id],
+    queryFn: async () => {
+      if (!sellerData?._id) return null;
       const summaryData = await calculateSellerMetrics(3650);
+      const productMetrics = await calculateProductMetrics(3650, inventoryData);
+      return { summary: summaryData, ...productMetrics };
+    },
+    enabled: !!sellerData?._id && inventoryData.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
 
- 
-      // Calculate product performance metrics from order data - defaulting to all time
-      const productMetrics = await calculateProductMetrics(3650);
-
-      const newReports = {
-        summary: summaryData,
-        ...productMetrics
-      };
-
-      setReports(newReports);
-    } catch (error) {
-      console.error("Error loading reports:", error);
-      setToast({ type: "danger", message: "Failed to load reports data" });
-    } finally {
-      setReportsLoading(false);
-    }
+  const reports = reportsData || {
+    summary: null,
+    fastMoving: [],
+    slowMoving: [],
+    outOfStock: [],
+    lowStock: []
   };
 
-  const handleStockUpdate = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/inventory/products/${selectedProduct._id}/stock`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "auth_token": token
-        },
-        body: JSON.stringify(stockUpdate)
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setToast({ type: "success", message: "Stock updated successfully" });
-        setShowStockModal(false);
-        loadInventoryData();
-        loadAlerts();
-      } else {
-        setToast({ type: "danger", message: data.message || "Failed to update stock" });
-      }
-    } catch (error) {
-      console.error("Error updating stock:", error);
-      setToast({ type: "danger", message: "Failed to update stock" });
-    }
-  };
-
-  const handleBulkUpdate = async () => {
-    try {
-      const updates = bulkUpdates.split('\n')
-        .map(line => line.trim())
-        .filter(line => line)
-        .map(line => {
-          const [sku, variationSku, newStock, reason] = line.split(',');
-          return {
-            sku: sku?.trim(),
-            variationSku: variationSku?.trim() || null,
-            newStock: parseInt(newStock?.trim()),
-            reason: reason?.trim() || "Bulk update"
-          };
-        })
-        .filter(update => update.sku && !isNaN(update.newStock));
-
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/inventory/bulk-update`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "auth_token": token
-        },
-        body: JSON.stringify({ updates })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setBulkResults(data.data);
-        setToast({ type: "success", message: `Bulk update completed: ${data.data.successful} successful, ${data.data.failed} failed` });
-        loadInventoryData();
-        loadAlerts();
-      } else {
-        setToast({ type: "danger", message: data.message || "Bulk update failed" });
-      }
-    } catch (error) {
-      console.error("Error in bulk update:", error);
-      setToast({ type: "danger", message: "Bulk update failed" });
-    }
-  };
-
-  const acknowledgeAlert = async (alertId) => {
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`${API_BASE_URL}/inventory/alerts/${alertId}/acknowledge`, {
-        method: "PUT",
+  const stockUpdateMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await axios.put(`${API_BASE_URL}/inventory/products/${selectedProduct._id}/stock`, payload, {
         headers: { "auth_token": token }
       });
-      loadAlerts();
+      return res.data;
+    },
+    onSuccess: () => {
+      setToast({ type: "success", message: "Stock updated successfully" });
+      setShowStockModal(false);
+      queryClient.invalidateQueries({ queryKey: ['seller-inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['seller-alerts'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || "Failed to update stock" });
+    }
+  });
+
+  const handleStockUpdate = async () => {
+    stockUpdateMutation.mutate(stockUpdate);
+  };
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (updates) => {
+      const res = await axios.post(`${API_BASE_URL}/inventory/bulk-update`, { updates }, {
+        headers: { "auth_token": token }
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setBulkResults(data.data);
+      setToast({ type: "success", message: `Bulk update completed: ${data.data.successful} successful, ${data.data.failed} failed` });
+      queryClient.invalidateQueries({ queryKey: ['seller-inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['seller-alerts'] });
+    },
+    onError: (err) => {
+      setToast({ type: "danger", message: err?.response?.data?.message || "Bulk update failed" });
+    }
+  });
+
+  const handleBulkUpdate = async () => {
+    const updates = bulkUpdates.split('\n')
+      .map(line => line.trim())
+      .filter(line => line)
+      .map(line => {
+        const [sku, variationSku, newStock, reason] = line.split(',');
+        return {
+          sku: sku?.trim(),
+          variationSku: variationSku?.trim() || null,
+          newStock: parseInt(newStock?.trim()),
+          reason: reason?.trim() || "Bulk update"
+        };
+      })
+      .filter(update => update.sku && !isNaN(update.newStock));
+
+    bulkUpdateMutation.mutate(updates);
+  };
+
+  const acknowledgeAlertMutation = useMutation({
+    mutationFn: async (alertId) => {
+      const res = await axios.put(`${API_BASE_URL}/inventory/alerts/${alertId}/acknowledge`, {}, {
+        headers: { "auth_token": token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
       setToast({ type: "success", message: "Alert acknowledged" });
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['seller-alerts'] });
+    },
+    onError: () => {
       setToast({ type: "danger", message: "Failed to acknowledge alert" });
     }
+  });
+
+  const acknowledgeAlert = async (alertId) => {
+    acknowledgeAlertMutation.mutate(alertId);
   };
 
   const getStockStatusColor = (product) => {
@@ -644,7 +589,11 @@ function SellerInventory() {
           >
             📤 Bulk Update
           </Button> */}
-          <Button variant="success" onClick={loadInventoryData}>
+          <Button variant="success" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['seller-inventory'] });
+            queryClient.invalidateQueries({ queryKey: ['seller-alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['seller-reports'] });
+          }}>
             🔄 Refresh
           </Button>
         </div>

@@ -1,99 +1,80 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL as BASE_URL } from '../config';
 import './SellerChat.css';
 
 const SellerChat = () => {
-    const [messages, setMessages] = useState([]);
+    const queryClient = useQueryClient();
+    const token = localStorage.getItem('token');
+    
     const [inputMessage, setInputMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [error, setError] = useState(null);
 
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
-    const pollIntervalRef = useRef(null);
+    const prevMessagesLengthRef = useRef(0);
 
     const CHAT_API_URL = `${BASE_URL}/api`;
 
-    useEffect(() => {
-        loadMessages();
-
-        // Start polling for new messages every 3 seconds
-        pollIntervalRef.current = setInterval(() => {
-            loadMessages(true); // Silent update
-        }, 3000);
-
-        return () => {
-            if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-            }
-        };
-    }, []);
-
-    const loadMessages = async (silent = false) => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                setError('Please login to access chat');
-                return;
-            }
-
-            const response = await axios.get(`${CHAT_API_URL}/chat/seller/messages`, {
+    const { data: messages = [], isLoading: loadingMessages, error: queryError } = useQuery({
+        queryKey: ['seller-chat-messages'],
+        queryFn: async () => {
+            if (!token) throw new Error('Please login to access chat');
+            const res = await axios.get(`${CHAT_API_URL}/chat/seller/messages`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-
-            if (response.data.success) {
-                setMessages(response.data.data || []);
-                setError(null);
-                if (!silent) {
-                    setTimeout(() => {
-                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                    }, 100);
-                }
-            } else {
-                setError('Failed to load messages');
+            if (res.data.success) {
+                return res.data.data || [];
             }
-        } catch (error) {
-            console.error('Error loading messages:', error);
-            const errorMessage = error.response?.data?.message || 'Failed to load messages. Please try again.';
-            setError(errorMessage);
+            throw new Error('Failed to load messages');
+        },
+        enabled: !!token,
+        refetchInterval: 3000, // Poll every 3s
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const error = queryError?.message || queryError?.response?.data?.message;
+    const isLoading = loadingMessages;
+
+    useEffect(() => {
+        if (messages.length > prevMessagesLengthRef.current) {
+            setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         }
-    };
+        prevMessagesLengthRef.current = messages.length;
+    }, [messages]);
+
+    const sendMessageMutation = useMutation({
+        mutationFn: async (payload) => {
+            const res = await axios.post(`${CHAT_API_URL}/chat/message`, payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.data.success) throw new Error(res.data.message || 'Failed to send message');
+            return res.data;
+        },
+        onSuccess: () => {
+            setInputMessage('');
+            queryClient.invalidateQueries({ queryKey: ['seller-chat-messages'] });
+        },
+        onError: (err) => {
+            alert(`Failed to send message: ${err?.response?.data?.message || err.message || 'Please try again.'}`);
+        }
+    });
 
     const sendMessage = async () => {
-        if (!inputMessage.trim() || isLoading) return;
+        if (!inputMessage.trim() || sendMessageMutation.isPending) return;
 
-        setIsLoading(true);
-
-        try {
-            const response = await axios.post(`${CHAT_API_URL}/chat/message`, {
-                message: inputMessage.trim(),
-                messageType: 'text',
-                receiver: {
-                    id: 'admin',
-                    name: 'Admin',
-                    type: 'admin'
-                }
-            }, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            });
-
-            if (response.data.success) {
-                setInputMessage('');
-                loadMessages();
-            } else {
-                console.error('API returned error:', response.data);
-                alert(`Failed to send message: ${response.data.message || 'Please try again.'}`);
+        sendMessageMutation.mutate({
+            message: inputMessage.trim(),
+            messageType: 'text',
+            receiver: {
+                id: 'admin',
+                name: 'Admin',
+                type: 'admin'
             }
-        } catch (error) {
-            console.error('Error sending message:', error);
-            const errorMessage = error.response?.data?.message || error.message || 'Network error';
-            alert(`Failed to send message: ${errorMessage}`);
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const handleImageUpload = async (event) => {
@@ -113,48 +94,51 @@ const SellerChat = () => {
         setSelectedImage(file);
     };
 
-    const sendImage = async () => {
-        if (!selectedImage) return;
-
-        setIsUploading(true);
-
-        try {
-            const formData = new FormData();
-            formData.append('image', selectedImage);
-
+    const sendImageMutation = useMutation({
+        mutationFn: async (formData) => {
             const uploadResponse = await axios.post(`${CHAT_API_URL}/chat/image`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                    Authorization: `Bearer ${token}`
                 }
             });
 
-            if (uploadResponse.data.success) {
-                const response = await axios.post(`${CHAT_API_URL}/chat/message`, {
-                    message: 'Image',
-                    messageType: 'image',
-                    receiver: {
-                        id: 'admin',
-                        name: 'Admin',
-                        type: 'admin'
-                    },
-                    image: uploadResponse.data.data
-                }, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-                });
+            if (!uploadResponse.data.success) throw new Error("Upload failed");
 
-                setSelectedImage(null);
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-                loadMessages();
+            const response = await axios.post(`${CHAT_API_URL}/chat/message`, {
+                message: 'Image',
+                messageType: 'image',
+                receiver: {
+                    id: 'admin',
+                    name: 'Admin',
+                    type: 'admin'
+                },
+                image: uploadResponse.data.data
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        },
+        onSuccess: () => {
+            setSelectedImage(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
             }
-        } catch (error) {
-            console.error('Error uploading image:', error);
+            queryClient.invalidateQueries({ queryKey: ['seller-chat-messages'] });
+        },
+        onError: (err) => {
             alert('Failed to upload image. Please try again.');
-        } finally {
-            setIsUploading(false);
         }
+    });
+
+    const isUploading = sendImageMutation.isPending;
+
+    const sendImage = async () => {
+        if (!selectedImage) return;
+
+        const formData = new FormData();
+        formData.append('image', selectedImage);
+        sendImageMutation.mutate(formData);
     };
 
     const handleKeyPress = (e) => {
@@ -189,7 +173,7 @@ const SellerChat = () => {
                     <div className="error-message">
                         <div className="error-content">
                             <p>{error}</p>
-                            <button onClick={() => loadMessages()} className="retry-button">
+                            <button onClick={() => queryClient.invalidateQueries({ queryKey: ['seller-chat-messages'] })} className="retry-button">
                                 Retry
                             </button>
                         </div>
@@ -278,9 +262,9 @@ const SellerChat = () => {
                     />
                     <button
                         onClick={selectedImage ? sendImage : sendMessage}
-                        disabled={(!inputMessage.trim() && !selectedImage) || isLoading || isUploading}
+                        disabled={(!inputMessage.trim() && !selectedImage) || sendMessageMutation.isPending || sendImageMutation.isPending}
                     >
-                        {isLoading || isUploading ? '...' : '➤'}
+                        {sendMessageMutation.isPending || sendImageMutation.isPending ? '...' : '➤'}
                     </button>
                 </div>
             </div>

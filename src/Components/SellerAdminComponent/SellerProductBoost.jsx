@@ -3,22 +3,7 @@ import axios from "axios";
 import { Card, Button, Modal, Form, Badge, Spinner, Alert, Row, Col, Table, InputGroup, FormControl } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  fetchActiveBoostPackages,
-  selectActiveBoostPackages,
-  selectBoostPackageLoading,
-  selectBoostPackageError
-} from "../../Features/Backend/BoostPackageSlice";
-import {
-  requestProductBoost,
-  fetchSellerBoostRequests,
-  cancelBoostRequest,
-  addProductsToBoostRequest,
-  selectSellerBoostRequests,
-  selectProductBoostLoading,
-  selectProductBoostError
-} from "../../Features/Backend/ProductBoostSlice";
-import { fetchProductsBySeller, selectProductsBySeller, selectSellerProductsLoading } from "../../Features/Backend/ProductSlice";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import { FaRocket, FaPlus, FaEye, FaTimes, FaCheckCircle, FaClock, FaBan, FaSearch, FaFilter, FaStar } from 'react-icons/fa';
 import LoaderOverlay from "../LoaderOverlay";
@@ -30,20 +15,44 @@ function SellerProductBoost() {
   const sellerData = seller?.data || seller;
   const sellerId = sellerData?._id;
 
-  // Boost packages state
-  const activePackages = useSelector(selectActiveBoostPackages) || [];
-  const packageLoading = useSelector(selectBoostPackageLoading);
-  const packageError = useSelector(selectBoostPackageError);
+  const queryClient = useQueryClient();
+  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  // Seller requests state
-  const rawSellerRequests = useSelector(selectSellerBoostRequests) || [];
+  const { data: activePackages = [], isLoading: packageLoading, error: packageErrorObj } = useQuery({
+    queryKey: ['active-boost-packages'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/boostpackage/active`);
+      return res.data?.data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const packageError = packageErrorObj?.message;
+
+  const { data: rawSellerRequests = [], isLoading: requestLoading, error: requestErrorObj } = useQuery({
+    queryKey: ['seller-boost-requests', sellerId],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/boost/seller/${sellerId}`, {
+        headers: { auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
   const sellerRequests = rawSellerRequests.filter(req => req.status !== 'cancelled');
-  const requestLoading = useSelector(selectProductBoostLoading);
-  const requestError = useSelector(selectProductBoostError);
+  const requestError = requestErrorObj?.message;
 
-  // Products state
-  const userProducts = useSelector(selectProductsBySeller) || [];
-  const productsLoading = useSelector(selectSellerProductsLoading);
+  const { data: userProducts = [], isLoading: productsLoading } = useQuery({
+    queryKey: ['products', true, sellerId],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/product/getsellerproduct`, {
+        headers: { seller_id: sellerId, auth_token: token }
+      });
+      return res.data?.data || [];
+    },
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // UI state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -62,11 +71,7 @@ function SellerProductBoost() {
   const [paymentInstruction, setPaymentInstruction] = useState("Pay at this number 03082011585 JazzCash/EasyPaisa");
 
   useEffect(() => {
-    if (sellerId) {
-      dispatch(fetchActiveBoostPackages());
-      dispatch(fetchSellerBoostRequests({ sellerId })); // This fetches ALL requests (no status filter)
-      dispatch(fetchProductsBySeller(sellerId));
-    }
+    // Redux fetches removed, React Query handles it automatically
     
     // Fetch dynamic payment instructions
     const fetchSettings = async () => {
@@ -104,6 +109,28 @@ function SellerProductBoost() {
     );
   };
 
+  const addProductsMutation = useMutation({
+    mutationFn: async ({ requestId, sellerId, newProductIds }) => {
+      const res = await axios.patch(`${API_BASE_URL}/boost/request/add-products`, {
+        requestId, sellerId, newProductIds
+      }, { headers: { auth_token: token } });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-boost-requests'] });
+      setShowAddMoreModal(false);
+      setAddProducts([]);
+      setAddMoreRequest(null);
+      showToast("Products added successfully!", "success");
+    },
+    onError: (err) => {
+      showToast(err?.response?.data?.message || err.message || "Failed to add products", "error");
+    },
+    onSettled: () => {
+      setAddingProducts(false);
+    }
+  });
+
   const handleSubmitAddMore = async (e) => {
     if (e) e.preventDefault();
     if (!addProducts.length) {
@@ -111,24 +138,11 @@ function SellerProductBoost() {
       return;
     }
     setAddingProducts(true);
-    try {
-      await dispatch(
-        addProductsToBoostRequest({
-          requestId: addMoreRequest._id,
-          sellerId,
-          newProductIds: addProducts,
-        })
-      ).unwrap();
-      setShowAddMoreModal(false);
-      setAddProducts([]);
-      setAddMoreRequest(null);
-      dispatch(fetchSellerBoostRequests({ sellerId }));
-      showToast("Products added successfully!", "success");
-    } catch (err) {
-      showToast(err || "Failed to add products", "error");
-    } finally {
-      setAddingProducts(false);
-    }
+    addProductsMutation.mutate({
+      requestId: addMoreRequest._id,
+      sellerId,
+      newProductIds: addProducts,
+    });
   };
 
   const handleScreenshotChange = (e) => {
@@ -144,69 +158,74 @@ function SellerProductBoost() {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmitRequest = async (e) => {
-    // Prevent any default form submission
-    if (e) e.preventDefault();
-
-    if (!selectedPackage || selectedProducts.length === 0) {
-      showToast('Please select products to boost', 'warning');
-      return;
-    }
-
-    if (!paymentScreenshot) {
-      showToast('Please upload payment screenshot', 'warning');
-      return;
-    }
-
-    if (selectedProducts.length > selectedPackage.productLimit) {
-      showToast(`Maximum ${selectedPackage.productLimit} products allowed`, 'warning');
-      return;
-    }
-
-    if (submittingRequest) {
-      return; // Prevent multiple submissions
-    }
-
-    setSubmittingRequest(true);
-
-    try {
-      const result = await dispatch(requestProductBoost({
-        sellerId,
-        packageId: selectedPackage._id,
-        productIds: selectedProducts,
-        paymentScreenshot
-      })).unwrap();
-
+  const requestBoostMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await axios.post(`${API_BASE_URL}/boost/request`, payload, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
       showToast('Request sent successfully!', 'success');
-
-      // Close modal and reset form
       setShowRequestModal(false);
       setSelectedPackage(null);
       setSelectedProducts([]);
       setPaymentScreenshot(null);
       setSsPreview(null);
-
-      // Refresh the requests list to show the new request
-      dispatch(fetchSellerBoostRequests({ sellerId }));
-
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['seller-boost-requests'] });
+    },
+    onError: (error) => {
       console.error('Request failed:', error);
-      showToast(error || 'Failed to send request', 'error');
-
-      // Don't close modal on error so user can try again
-    } finally {
+      showToast(error?.response?.data?.message || error.message || 'Failed to send request', 'error');
+    },
+    onSettled: () => {
       setSubmittingRequest(false);
     }
+  });
+
+  const handleSubmitRequest = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedPackage || selectedProducts.length === 0) {
+      showToast('Please select products to boost', 'warning');
+      return;
+    }
+    if (!paymentScreenshot) {
+      showToast('Please upload payment screenshot', 'warning');
+      return;
+    }
+    if (selectedProducts.length > selectedPackage.productLimit) {
+      showToast(`Maximum ${selectedPackage.productLimit} products allowed`, 'warning');
+      return;
+    }
+    if (submittingRequest) return;
+    
+    setSubmittingRequest(true);
+    requestBoostMutation.mutate({
+      sellerId,
+      packageId: selectedPackage._id,
+      productIds: selectedProducts,
+      paymentScreenshot
+    });
   };
 
-  const handleCancelRequest = async (requestId) => {
-    try {
-      await dispatch(cancelBoostRequest({ requestId, sellerId })).unwrap();
+  const cancelBoostMutation = useMutation({
+    mutationFn: async (requestId) => {
+      const res = await axios.patch(`${API_BASE_URL}/boost/cancel`, { requestId, sellerId }, {
+        headers: { auth_token: token }
+      });
+      return res.data;
+    },
+    onSuccess: () => {
       showToast('Request cancelled successfully!', 'success');
-      dispatch(fetchSellerBoostRequests({ sellerId }));
-    } catch (error) {
-      showToast(error, 'error');
+      queryClient.invalidateQueries({ queryKey: ['seller-boost-requests'] });
+    },
+    onError: (error) => {
+      showToast(error?.response?.data?.message || error.message || 'Failed to cancel', 'error');
     }
+  });
+
+  const handleCancelRequest = async (requestId) => {
+    cancelBoostMutation.mutate(requestId);
   };
 
   const handleProductSelection = (productId) => {
