@@ -19,6 +19,7 @@ import { fetchBanners, selectBanners } from "../Features/Backend/BannerSlice";
 import SEOHead from "../Components/SEOHead";
 import { trackCategoryVisit } from "../utils/userBehavior";
 import { selectProducts } from "../Features/Backend/ProductSlice";
+import OptimizedImage from "../Components/OptimizedImage";
 
 const Shop = memo(() => {
   const dispatch = useDispatch();
@@ -620,7 +621,7 @@ const Shop = memo(() => {
                 {paginatedProducts.map((product) => (
                   <div key={product.id || product._id} className="product-card" onClick={() => navigate(`/product/${product.id || product._id}`)} style={{ cursor: "pointer" }}>
                     <div className="product-image-wrapper">
-                      <img src={product.image || "https://via.placeholder.com/400?text=No+Image"} alt={product.name} />
+                      <OptimizedImage src={product.image || "https://via.placeholder.com/400?text=No+Image"} alt={product.name} />
                       {product.discount > 0 && (
                         <span className="discount-badge">{product.discount}%</span>
                       )}
@@ -1254,6 +1255,10 @@ const Shop = memo(() => {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .product-image-wrapper .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
         }
         .discount-badge {
           position: absolute;

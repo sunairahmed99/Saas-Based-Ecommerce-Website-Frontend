@@ -2,6 +2,7 @@ import React, { useEffect, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { fetchTrendingCategories, incrementCategoryClicks, selectTrendingCategories } from "../../Features/Backend/CategorySlice";
+import OptimizedImage from "../OptimizedImage";
 
 const TopCategories = memo(() => {
   const dispatch = useDispatch();
@@ -57,15 +58,10 @@ const TopCategories = memo(() => {
                 >
                   <div className="category-icon" style={{ background: categoryColor }}>
                     {cat.Image ? (
-                      <img 
-                        src={cat.Image} 
-                        alt={cat.name || "Category"} 
+                      <OptimizedImage
+                        src={cat.Image}
+                        alt={cat.name || "Category"}
                         className="category-image"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          const fallback = e.target.parentElement.querySelector('.category-emoji');
-                          if (fallback) fallback.style.display = "block";
-                        }}
                       />
                     ) : null}
                     <span 
@@ -150,6 +146,12 @@ const TopCategories = memo(() => {
           height: 100%;
           object-fit: cover;
           border-radius: 16px;
+        }
+        .category-icon .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
+          border-radius: 16px;
+          overflow: hidden;
         }
         @media (max-width: 768px) {
           .category-card {

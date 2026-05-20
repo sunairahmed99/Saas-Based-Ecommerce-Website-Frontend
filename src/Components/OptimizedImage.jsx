@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
+import { getOptimizedImageUrl } from '../utils/imageOptimizer';
 
 const OptimizedImage = memo(({
   src,
@@ -14,6 +15,8 @@ const OptimizedImage = memo(({
   const [isInView, setIsInView] = useState(false);
   const imgRef = useRef(null);
   const observerRef = useRef(null);
+
+  const optimizedSrc = getOptimizedImageUrl(src);
 
   useEffect(() => {
     // Intersection Observer for lazy loading
@@ -78,7 +81,7 @@ const OptimizedImage = memo(({
       {/* Main image - only load when in view */}
       {isInView && (
         <img
-          src={src}
+          src={optimizedSrc}
           alt={alt}
           onLoad={handleLoad}
           onError={handleError}

@@ -8,6 +8,7 @@ import { fetchActiveBoosts, selectActiveBoosts } from "../../Features/Backend/Pr
 import { addToFavorites, fetchFavorites, deleteFavorite, selectFavorites, selectAddFavoriteLoading } from "../../Features/Backend/FavoriteSlice";
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
+import OptimizedImage from "../OptimizedImage";
 
 const BoostedProducts = () => {
   const dispatch = useDispatch();
@@ -193,7 +194,7 @@ const BoostedProducts = () => {
               return (
                 <Link to={`/product/${productId}`} key={productId} className="boost-card">
                   <div className="boost-img">
-                    <img src={image} alt={name} loading="lazy" />
+                    <OptimizedImage src={image} alt={name} />
                     <div className="pill-stack">
                       <span className="pill pill-views">👁️ {views}</span>
                       <span className="pill pill-sold">🛒 {sold || 0}</span>
@@ -317,6 +318,10 @@ const BoostedProducts = () => {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .boost-img .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
         }
         .boost-body {
           display: flex;

@@ -7,6 +7,7 @@ import { fetchHomeFlashDeals, selectHomeFlashDeals, selectFlashDealLoading } fro
 import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, selectAddFavoriteLoading } from "../../Features/Backend/FavoriteSlice";
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
+import OptimizedImage from "../OptimizedImage";
 
 const FlashDeals = memo(() => {
   const dispatch = useDispatch();
@@ -148,7 +149,7 @@ const FlashDeals = memo(() => {
                 <div key={fd._id} className="product-card-wrapper">
                   <Link to={`/product/${productId}`} className="product-card flash" style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="product-image">
-                      <img src={fd.productId?.pimage1 || fd.productId?.pimage || "https://via.placeholder.com/180"} alt={fd.productId?.pname || "Product"} />
+                      <OptimizedImage src={fd.productId?.pimage1 || fd.productId?.pimage || "https://via.placeholder.com/180"} alt={fd.productId?.pname || "Product"} />
                       {(user || seller || localStorage.getItem("token")) && (
                         <button
                           className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
@@ -274,6 +275,10 @@ const FlashDeals = memo(() => {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .product-image .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
         }
         .product-body {
           padding: 0.8rem 0.85rem;

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, selectAddFavoriteLoading } from "../../Features/Backend/FavoriteSlice";
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
+import OptimizedImage from "../OptimizedImage";
 
 const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 32, 39, 0.3)", isLoading = false }) => {
   const scrollRef = useRef(null);
@@ -178,7 +179,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
                   <div key={productId} className="product-card-wrapper">
                     <Link to={`/product/${productId}`} className="product-card" style={{ textDecoration: "none", color: "inherit" }}>
                       <div className="product-image">
-                        <img
+                        <OptimizedImage
                           src={productImage}
                           alt={productName}
                           onError={(e) => {
@@ -434,6 +435,10 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .product-image .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
         }
         .product-body {
           padding: 0.7rem 0.75rem 0.8rem 0.75rem;

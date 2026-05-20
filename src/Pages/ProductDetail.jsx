@@ -16,6 +16,7 @@ import { fetchUserOrderedProducts, createProductReview, selectUserOrderedProduct
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { trackViewedProduct } from "../utils/userBehavior";
 import { API_BASE_URL } from '../config';
+import OptimizedImage from "../Components/OptimizedImage";
 
 function ProductDetail() {
   const { id } = useParams();
@@ -459,6 +460,10 @@ function ProductDetail() {
             object-fit: contain;
             background: rgba(0,0,0,0.15);
           }
+          .main-image-wrapper .optimized-image-wrapper {
+            width: 100%;
+            height: 100%;
+          }
           .thumbnail-row {
             display: flex;
             gap: 1rem;
@@ -485,6 +490,10 @@ function ProductDetail() {
             width: 100%;
             height: 100%;
             object-fit: contain;
+          }
+          .thumbnail .optimized-image-wrapper {
+            width: 100%;
+            height: 100%;
           }
           .product-info-section {
             display: flex;
@@ -879,6 +888,10 @@ function ProductDetail() {
             width: 100%;
             height: 200px;
             object-fit: cover;
+          }
+          .related-card .optimized-image-wrapper {
+            width: 100%;
+            height: 200px;
           }
           .related-info {
             padding: 1rem;
@@ -1488,7 +1501,7 @@ function ProductDetail() {
         <div className="product-detail-container">
           <motion.div className="product-images-section" initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6 }}>
             <div className="main-image-wrapper">
-              <img src={mainImage} alt={product.pname} />
+              <OptimizedImage src={mainImage} alt={product.pname} />
             </div>
             {images.length >= 1 && (
               <div className="thumbnail-row">
@@ -1498,7 +1511,7 @@ function ProductDetail() {
                     className={`thumbnail ${selectedImage === idx ? "active" : ""}`}
                     onClick={() => setSelectedImage(idx)}
                   >
-                    <img src={img} alt={`${product.pname} ${idx + 1}`} />
+                    <OptimizedImage src={img} alt={`${product.pname} ${idx + 1}`} />
                   </div>
                 ))}
               </div>
@@ -1786,7 +1799,7 @@ function ProductDetail() {
                     transition={{ duration: 0.3 }}
                   >
                     <Link to={`/product/${rel._id}`} className="related-card">
-                      <img src={rel.pimage1 || "https://via.placeholder.com/220?text=No+Image"} alt={rel.pname} className="related-image" />
+                      <OptimizedImage src={rel.pimage1 || "https://via.placeholder.com/220?text=No+Image"} alt={rel.pname} className="related-image" />
                       <div className="related-info">
                         <div className="related-name">{rel.pname}</div>
                         <div className="related-seller">by {rel.sellerid?.sname || rel.sellerid?.name || rel.sellerid || "Unknown Seller"}</div>

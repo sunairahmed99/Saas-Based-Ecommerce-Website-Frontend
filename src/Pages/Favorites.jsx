@@ -14,6 +14,7 @@ import { selectSeller } from "../Features/Backend/SellerSlice";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
+import OptimizedImage from "../Components/OptimizedImage";
 
 const Favorites = () => {
   const dispatch = useDispatch();
@@ -207,11 +208,9 @@ const Favorites = () => {
                     >
                       <div className="card-image-wrapper">
                         <Link to={`/product/${product.productId}`}>
-                          <motion.img
+                          <OptimizedImage
                             src={product.image}
                             alt={product.name}
-                            whileHover={{ scale: 1.1 }}
-                            transition={{ duration: 0.3 }}
                           />
                         </Link>
                         {product.discount > 0 && (
@@ -349,6 +348,10 @@ const Favorites = () => {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+        .card-image-wrapper .optimized-image-wrapper {
+          width: 100%;
+          height: 100%;
         }
         .discount-badge {
           position: absolute;
