@@ -8,9 +8,8 @@ const API_URL = `${API_BASE_URL}/product`;
 const filterDummyProducts = (products) => {
   if (!Array.isArray(products)) return products;
   return products.filter(p => {
-    const isLoremFlickr = p.pimage1 && p.pimage1.includes('loremflickr.com');
     const isPulseDummy = p.pname && p.pname.includes('Pulse');
-    return !isLoremFlickr && !isPulseDummy;
+    return !isPulseDummy;
   });
 };
 

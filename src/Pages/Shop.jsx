@@ -244,9 +244,8 @@ const Shop = memo(() => {
   const filteredProducts = useMemo(() => {
     // Filter out dummy items directly
     const validProducts = Array.isArray(rawProducts) ? rawProducts.filter(p => {
-      const isLoremFlickr = p.pimage1 && p.pimage1.includes('loremflickr.com');
       const isPulseDummy = p.pname && p.pname.includes('Pulse');
-      return !isLoremFlickr && !isPulseDummy;
+      return !isPulseDummy;
     }) : [];
 
     // Filter to show only active products
