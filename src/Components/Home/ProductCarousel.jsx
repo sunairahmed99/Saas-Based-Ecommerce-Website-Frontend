@@ -7,7 +7,7 @@ import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, select
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 
-const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 32, 39, 0.3)" }) => {
+const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 32, 39, 0.3)", isLoading = false }) => {
   const scrollRef = useRef(null);
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
@@ -138,7 +138,22 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
             ←
           </button>
           <div className="card-row scroll-x" ref={scrollRef}>
-            {products.length === 0 ? (
+            {isLoading ? (
+              [...Array(5)].map((_, idx) => (
+                <div key={`skeleton-${idx}`} className="product-card-wrapper">
+                  <div className="product-card skeleton-card">
+                    <div className="product-image skeleton-image-wrapper">
+                       <div className="skeleton-pulse" style={{ width: '100%', height: '100%' }}></div>
+                    </div>
+                    <div className="product-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="skeleton-pulse skeleton-title"></div>
+                      <div className="skeleton-pulse skeleton-seller"></div>
+                      <div className="skeleton-pulse skeleton-price"></div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : products.length === 0 ? (
               <div style={{ padding: "2rem", color: "rgba(255,255,255,0.7)", textAlign: "center" }}>
                 No products available
               </div>
@@ -232,6 +247,44 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
       </AnimatePresence>
       
       <style>{`
+        /* Skeleton Pulse Animation */
+        .skeleton-card {
+          pointer-events: none;
+        }
+        .skeleton-pulse {
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
+          background-size: 200% 100%;
+          animation: skeleton-loading 1.5s infinite;
+          border-radius: 4px;
+        }
+        @keyframes skeleton-loading {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .skeleton-image-wrapper {
+          background: rgba(255, 255, 255, 0.03);
+          width: 100%;
+          height: 120px;
+        }
+        .skeleton-title {
+          height: 16px;
+          width: 80%;
+          border-radius: 4px;
+          margin-bottom: 4px;
+        }
+        .skeleton-seller {
+          height: 12px;
+          width: 50%;
+          border-radius: 4px;
+          margin-bottom: 8px;
+        }
+        .skeleton-price {
+          height: 16px;
+          width: 60%;
+          border-radius: 4px;
+          margin-top: auto;
+        }
+
         .section {
           width: 100%;
           padding: 2rem;

@@ -1,5 +1,8 @@
 import React, { useEffect, memo, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { API_BASE_URL } from "../config";
 import Navbar from "../Components/Navbar";
 import HeroBanner from "../Components/Home/HeroBanner";
 import SearchBar from "../Components/Home/SearchBar";
@@ -11,14 +14,7 @@ import SellerCTA from "../Components/Home/SellerCTA";
 import Footer from "../Components/Home/Footer";
 import Testimonials from "../Components/Home/Testimonials";
 import BoostedProducts from "../Components/Home/BoostedProducts";
-import {
-  fetchTrendingProducts,
-  fetchForYouProducts,
-  fetchLatestProducts,
-  selectTrendingProducts,
-  selectForYouProducts,
-  selectLatestProducts,
-} from "../Features/Backend/ProductSlice";
+
 import { fetchHomeFlashDeals, selectHomeFlashDeals } from "../Features/Backend/FlashDealSlice";
 import { fetchApprovedReviews, selectApprovedReviews } from "../Features/Backend/ReviewSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
@@ -29,27 +25,60 @@ const Home = memo(() => {
   const dispatch = useDispatch();
   const scrollRef = useRef(null);
   const user = useSelector(selectUser);
-  const trendingProducts = useSelector(selectTrendingProducts);
-  const forYouProducts = useSelector(selectForYouProducts);
-  const latestProducts = useSelector(selectLatestProducts);
   const dealsBySeller = useSelector(selectHomeFlashDeals);
   const approvedReviews = useSelector(selectApprovedReviews) || [];
 
   // Get user ID from user object
   const userId = user?.data?._id || user?._id || null;
 
-  // Fetch data only if not already in store
+  // Helper to filter out dummy products with broken loremflickr images
+  const filterDummyProducts = (products) => {
+    if (!Array.isArray(products)) return products;
+    return products.filter(p => {
+      const isLoremFlickr = p.pimage1 && p.pimage1.includes('loremflickr.com');
+      const isPulseDummy = p.pname && p.pname.includes('Pulse');
+      return !isLoremFlickr && !isPulseDummy;
+    });
+  };
+
+  // TanStack Query for Trending Products
+  const { data: trendingProducts = [], isLoading: trendingLoading } = useQuery({
+    queryKey: ['trendingProducts'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/product/trending`);
+      return filterDummyProducts(res.data?.data || []);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // TanStack Query for Latest Products
+  const { data: latestProducts = [], isLoading: latestLoading } = useQuery({
+    queryKey: ['latestProducts'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/product/latest`);
+      return filterDummyProducts(res.data?.data || []);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // TanStack Query for "For You" Products
+  const { data: forYouProducts = [], isLoading: forYouLoading } = useQuery({
+    queryKey: ['forYouProducts', userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
+      return filterDummyProducts(res.data?.data || []);
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch static data only if not already in store
   useEffect(() => {
-    if (!trendingProducts || trendingProducts.length === 0) {
-      dispatch(fetchTrendingProducts());
-    }
-    if (!latestProducts || latestProducts.length === 0) {
-      dispatch(fetchLatestProducts());
-    }
     if (!approvedReviews || approvedReviews.length === 0) {
       dispatch(fetchApprovedReviews());
     }
-  }, [dispatch, trendingProducts?.length, latestProducts?.length, approvedReviews?.length]);
+  }, [dispatch, approvedReviews?.length]);
 
   // Fetch flash deals only if not already loaded
   useEffect(() => {
@@ -57,13 +86,6 @@ const Home = memo(() => {
       dispatch(fetchHomeFlashDeals());
     }
   }, [dispatch, dealsBySeller?.length]);
-
-  // Fetch "For You" products if user is logged in
-  useEffect(() => {
-    if (userId) {
-      dispatch(fetchForYouProducts(userId));
-    }
-  }, [dispatch, userId]);
 
   // Scroll function for navigation arrows (memoized)
   const scroll = useCallback((direction) => {
@@ -133,6 +155,7 @@ const Home = memo(() => {
           title="Trending Now"
           subtitle="Top 10 selling today"
           products={activeTrendingProducts}
+          isLoading={trendingLoading}
           bgColor="rgba(30, 32, 39, 0.35)"
         />
       <Testimonials />
@@ -140,11 +163,13 @@ const Home = memo(() => {
           title="For You"
           subtitle={userId ? "Personalized recommendations" : "Recommended for you"}
           products={forYouRecommendations}
+          isLoading={forYouLoading}
           bgColor="rgba(51, 68, 102, 0.25)"
         />
         <ProductCarousel 
           title="Latest Products" 
           products={electronicsProducts}
+          isLoading={latestLoading}
           bgColor="rgba(30, 32, 39, 0.4)"
         />
         <SellerCTA />
