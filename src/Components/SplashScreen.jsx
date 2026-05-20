@@ -92,6 +92,10 @@ const SplashScreen = ({ onComplete }) => {
                         },
                         staleTime: 5 * 60 * 1000
                     })
+                },
+                {
+                    name: 'All Products',
+                    fn: () => dispatch(fetchproducts()).unwrap()
                 }
             ];
 
@@ -132,7 +136,6 @@ const SplashScreen = ({ onComplete }) => {
 
             // Fire remaining non-critical fetches in background (does not block splash screen transition)
             const fetchBackgroundResources = () => {
-                dispatch(fetchproducts()).unwrap().catch(e => console.warn(e));
                 dispatch(fetchTopPerformingSellers()).unwrap().catch(e => console.warn(e));
                 dispatch(fetchApprovedReviews()).unwrap().catch(e => console.warn(e));
             };
