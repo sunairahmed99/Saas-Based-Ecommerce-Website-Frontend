@@ -18,6 +18,12 @@ function ContactUs() {
   const [toastMsg, setToastMsg] = React.useState("");
   const [showSuccess, setShowSuccess] = React.useState(false);
 
+  React.useEffect(() => {
+    if (!showSuccess) return;
+    const timer = setTimeout(() => setShowSuccess(false), 3000);
+    return () => clearTimeout(timer);
+  }, [showSuccess]);
+
   const onSubmit = async (data) => {
     const result = await dispatch(createContact(data));
     if (createContact.fulfilled.match(result)) {
@@ -25,7 +31,6 @@ function ContactUs() {
       setShowToast(true);
       setShowSuccess(true);
       setTimeout(() => setShowToast(false), 2500);
-      setTimeout(() => setShowSuccess(false), 3000);
       reset();
     } else {
       setToastMsg(result.payload || "Unable to send message.");

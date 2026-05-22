@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useRef, memo, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FaHeart, FaCheckCircle } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchHomeFlashDeals, selectHomeFlashDeals, selectFlashDealLoading } from "../../Features/Backend/FlashDealSlice";
-import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, selectAddFavoriteLoading } from "../../Features/Backend/FavoriteSlice";
+import { addToFavorites, deleteFavorite, selectFavorites, selectAddFavoriteLoading, getProductIdFromFavorite } from "../../Features/Backend/FavoriteSlice";
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import OptimizedImage from "../OptimizedImage";
 
 const FlashDeals = memo(() => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const dealsBySeller = useSelector(selectHomeFlashDeals) || [];
   const loading = useSelector(selectFlashDealLoading);
   const user = useSelector(selectUser);
@@ -41,9 +42,8 @@ const FlashDeals = memo(() => {
 
   // Check if product is in favorites
   const isFavorite = (productId) => {
-    return favorites.some(
-      (fav) => (fav.productId?._id || fav.productId) === productId
-    );
+    const pid = String(productId);
+    return favorites.some((fav) => getProductIdFromFavorite(fav) === pid);
   };
 
   // Handle favorite toggle (memoized)
@@ -52,7 +52,7 @@ const FlashDeals = memo(() => {
     e.stopPropagation();
 
     if (!user && !seller && !localStorage.getItem("token")) {
-      window.location.href = "/login";
+      navigate("/login");
       return;
     }
 
@@ -62,11 +62,10 @@ const FlashDeals = memo(() => {
 
     try {
       if (isFavorite(productId)) {
-        const favorite = favorites.find(
-          (fav) => (fav.productId?._id || fav.productId) === productId
-        );
+        const pid = String(productId);
+        const favorite = favorites.find((fav) => getProductIdFromFavorite(fav) === pid);
         if (favorite) {
-          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
+          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId: pid })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",

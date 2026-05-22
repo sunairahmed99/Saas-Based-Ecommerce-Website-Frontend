@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";

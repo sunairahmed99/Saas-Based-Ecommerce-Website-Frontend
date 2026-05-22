@@ -25,7 +25,7 @@ const Footer = () => {
           <div>
             <h4>For Sellers</h4>
             <ul>
-              <li><Link to="/register">Start Selling</Link></li>
+              <li><Link to="/register" state={{ accountType: "seller" }}>Start Selling</Link></li>
               <li><Link to="/contact">Seller Policies</Link></li>
               <li><Link to="/shop">Shop Now</Link></li>
             </ul>

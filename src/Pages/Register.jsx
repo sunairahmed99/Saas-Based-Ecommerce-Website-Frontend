@@ -27,6 +27,12 @@ const Register = () => {
   const isSubmitting = accountType === "seller" ? sellerLoading : loading;
 
   React.useEffect(() => {
+    if (location.state?.accountType === "seller") {
+      setAccountType("seller");
+    }
+  }, [location.state?.accountType]);
+
+  React.useEffect(() => {
     // If logged in as customer but registering as seller, log out customer first
     if (user) {
       if (accountType === "seller") {

@@ -87,12 +87,14 @@ const Navbar = () => {
       }
     }
 
-    // Fetch favorites and cart only if user/seller is authenticated
-    if (token && (user || seller)) {
+    // Favorites: customers only (once per session mount — avoid race overwrites)
+    if (token && loginType === "user") {
       dispatch(fetchFavorites());
+    }
+    if (token) {
       dispatch(fetchCartCount());
     }
-  }, [dispatch, user, seller]);
+  }, [dispatch]);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -275,8 +277,8 @@ const Navbar = () => {
             )}
           </div>
         )}
-        {/* Favorites icon - ONLY FOR USER */}
-        {user && (
+        {/* Favorites icon - for logged-in customers */}
+        {(user || (localStorage.getItem("token") && localStorage.getItem("loginType") !== "seller")) && (
           <div  
             className="favorite-icon-wrapper"
             onClick={() => navigate("/favorites")}

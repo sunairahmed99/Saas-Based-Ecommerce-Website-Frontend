@@ -28,7 +28,7 @@ import {
   selectTotalItems,
   selectTotalCartValue,
 } from "../Features/Backend/CartSlice";
-import { selectUser } from "../Features/Backend/UserSlice";
+import { selectUser, selectUserInitializing } from "../Features/Backend/UserSlice";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -42,18 +42,22 @@ const Cart = () => {
   const totalItems = useSelector(selectTotalItems);
   const totalCartValue = useSelector(selectTotalCartValue);
   const user = useSelector(selectUser);
+  const userInitializing = useSelector(selectUserInitializing);
 
   const [toast, setToast] = useState(null);
   const [processingIds, setProcessingIds] = useState(new Set());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    if (userInitializing) {
+      return;
+    }
     if (!token || !user) {
       navigate("/login");
       return;
     }
     dispatch(fetchCartItems());
-  }, [dispatch, navigate, user]);
+  }, [dispatch, navigate, user, userInitializing]);
 
   // Auto-hide toast
   useEffect(() => {
@@ -156,7 +160,7 @@ const Cart = () => {
     }
   };
 
-  if (loading) {
+  if (loading || userInitializing) {
     return (
       <>
         <Navbar />
@@ -164,10 +168,10 @@ const Cart = () => {
           <motion.div 
             animate={{ opacity: [0.5, 1, 0.5] }} 
             transition={{ duration: 1.5, repeat: Infinity }}
-            style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: "0.8rem" }}
+            style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", textAlign: "center" }}
           >
             <FaShoppingCart size={28} style={{ color: "#00eaff" }} />
-            <p style={{ color: "#fff", fontSize: "1.2rem", margin: 0, display: "flex", alignItems: "center" }}>Loading cart...</p>
+            <p style={{ color: "#fff", fontSize: "1.2rem", margin: 0 }}>Loading cart...</p>
           </motion.div>
         </div>
         <Footer />

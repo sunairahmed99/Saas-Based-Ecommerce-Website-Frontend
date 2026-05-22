@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect, memo, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FaHeart, FaCheckCircle } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites, selectAddFavoriteLoading } from "../../Features/Backend/FavoriteSlice";
+import { addToFavorites, deleteFavorite, selectFavorites, selectAddFavoriteLoading, getProductIdFromFavorite } from "../../Features/Backend/FavoriteSlice";
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import OptimizedImage from "../OptimizedImage";
@@ -11,6 +11,7 @@ import OptimizedImage from "../OptimizedImage";
 const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 32, 39, 0.3)", isLoading = false }) => {
   const scrollRef = useRef(null);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
   const favorites = useSelector(selectFavorites) || [];
@@ -28,9 +29,8 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
 
   // Check if product is in favorites
   const isFavorite = (productId) => {
-    return favorites.some(
-      (fav) => (fav.productId?._id || fav.productId) === productId
-    );
+    const pid = String(productId);
+    return favorites.some((fav) => getProductIdFromFavorite(fav) === pid);
   };
 
   // Handle favorite toggle
@@ -40,7 +40,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
 
     if (!user && !seller && !localStorage.getItem("token")) {
       // Redirect to login if not logged in
-      window.location.href = "/login";
+      navigate("/login");
       return;
     }
 
@@ -51,11 +51,10 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
     try {
       if (isFavorite(productId)) {
         // Remove from favorites
-        const favorite = favorites.find(
-          (fav) => (fav.productId?._id || fav.productId) === productId
-        );
+        const pid = String(productId);
+        const favorite = favorites.find((fav) => getProductIdFromFavorite(fav) === pid);
         if (favorite) {
-          const result = await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
+          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId: pid })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -64,7 +63,8 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
         }
       } else {
         // Add to favorites
-      const result = await dispatch(addToFavorites(productId)).unwrap();
+      const product = products.find((p) => String(p._id || p.id) === String(productId)) || productId;
+      await dispatch(addToFavorites(product)).unwrap();
         setToast({
           type: "success",
           message: "Added to favorites!",
@@ -169,14 +169,16 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
                           <span className="pill pill-views">👁️ {views}</span>
                           <span className="pill pill-sold">🛒 {sold}</span>
                         </div>
-                        <button
-                          className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
-                          onClick={(e) => handleFavoriteClick(e, productId)}
-                          disabled={isProcessing}
-                          title={favorite ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <FaHeart />
-                        </button>
+                        {localStorage.getItem("loginType") !== "seller" && (
+                          <button
+                            className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
+                            onClick={(e) => handleFavoriteClick(e, productId)}
+                            disabled={isProcessing}
+                            title={favorite ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            <FaHeart />
+                          </button>
+                        )}
                       </div>
                       <div className="product-body">
                         <h4>{productName}</h4>

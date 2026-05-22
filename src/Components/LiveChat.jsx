@@ -6,6 +6,7 @@ import { selectUser } from '../Features/Backend/UserSlice';
 import axios from 'axios';
 import { FaPaperPlane, FaUserShield, FaTimes, FaComments } from 'react-icons/fa';;
 import { API_BASE_URL } from '../config';
+import { getAuthToken } from '../utils/auth';
 import { toast } from './Toast';
 import './LiveChat.css';
 
@@ -55,7 +56,7 @@ const LiveChat = () => {
 
     const fetchHistory = async (userId) => {
         try {
-            const token = localStorage.getItem("token");
+            const token = getAuthToken();
             const res = await axios.get(`${API_BASE}/api/chat/messages/${userId}`, {
                 headers: { auth_token: token }
             });

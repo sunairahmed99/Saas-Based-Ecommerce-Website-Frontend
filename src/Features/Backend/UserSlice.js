@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { API_BASE_URL } from '../../config';
+import { getAuthToken } from '../../utils/auth';
 
 const API_URL = `${API_BASE_URL}/user`;
 
@@ -55,8 +56,9 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await axios.post(`${API_URL}/login`, credentials);
       // Save token if available (for regular users who don't need verification)
-      if(res.data.token) {
-        localStorage.setItem("token", res.data.token);
+      if (res.data.token) {
+        const cleanToken = res.data.token.replace(/^Bearer\s+/i, "").trim();
+        localStorage.setItem("token", cleanToken);
         localStorage.setItem("loginType", "user");
       }
       return res.data;
@@ -77,8 +79,9 @@ export const verifyLoginCode = createAsyncThunk(
       const res = await axios.post(`${API_URL}/verify-login`, payload);
 
       // Save token if available
-      if(res.data.token) {
-        localStorage.setItem("token", res.data.token);
+      if (res.data.token) {
+        const cleanToken = res.data.token.replace(/^Bearer\s+/i, "").trim();
+        localStorage.setItem("token", cleanToken);
         localStorage.setItem("loginType", "user");
       }
       return res.data;
@@ -224,7 +227,7 @@ export const fetchCurrentUser = createAsyncThunk(
   "users/fetchCurrentUser",
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       if (!token) {
         throw new Error('No token available');

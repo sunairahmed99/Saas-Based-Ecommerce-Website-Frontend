@@ -9,7 +9,7 @@ import { FaStar, FaHeart, FaSearch, FaFilter, FaTimes, FaCheckCircle, FaExclamat
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
-import { addToFavorites, deleteFavorite, fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
+import { addToFavorites, deleteFavorite, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { selectSeller } from "../Features/Backend/SellerSlice";
 import { fetchcategories, selectcategories } from "../Features/Backend/CategorySlice";
@@ -198,9 +198,8 @@ const Shop = memo(() => {
 
   // Memoized favorites check
   const isFavorite = useCallback((productId) => {
-    return favorites.some(
-      (fav) => (fav.productId?._id || fav.productId) === productId
-    );
+    const pid = String(productId);
+    return favorites.some((fav) => getProductIdFromFavorite(fav) === pid);
   }, [favorites]);
 
   // Memoized favorite toggle handler
@@ -212,7 +211,7 @@ const Shop = memo(() => {
     if (!productId) return;
 
     if (!user && !seller && !localStorage.getItem("token")) {
-      window.location.href = "/login";
+      navigate("/login");
       return;
     }
 
@@ -222,11 +221,10 @@ const Shop = memo(() => {
 
     try {
       if (isFavorite(productId)) {
-        const favorite = favorites.find(
-          (fav) => (fav.productId?._id || fav.productId) === productId
-        );
+        const pid = String(productId);
+        const favorite = favorites.find((fav) => getProductIdFromFavorite(fav) === pid);
         if (favorite) {
-          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId })).unwrap();
+          await dispatch(deleteFavorite({ favoriteId: favorite._id, productId: pid })).unwrap();
           setToast({
             type: "success",
             message: "Removed from favorites",
@@ -511,17 +509,40 @@ const Shop = memo(() => {
                   aria-label="Maximum price filter"
                 />
               </div>
-              <input
-                type="range"
-                min="1"
-                max={maxPriceLimit}
-                value={priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1]}
-                onChange={(e) =>
-                  setPriceRange([priceRange[0], Math.min(Math.max(parseInt(e.target.value), 1), maxPriceLimit)])
-                }
-                className="price-slider"
-                aria-label="Price range slider"
-              />
+              <div className="price-slider-wrap">
+                <div className="price-slider-track" aria-hidden="true">
+                  <div
+                    className="price-slider-fill"
+                    style={{
+                      width: `${maxPriceLimit > 1
+                        ? Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              (((priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1]) - 1) /
+                                (maxPriceLimit - 1)) *
+                                100
+                            )
+                          )
+                        : 100}%`,
+                    }}
+                  />
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max={maxPriceLimit}
+                  value={priceRange[1] === 10000000 ? maxPriceLimit : priceRange[1]}
+                  onChange={(e) =>
+                    setPriceRange([
+                      priceRange[0],
+                      Math.min(Math.max(parseInt(e.target.value, 10), 1), maxPriceLimit),
+                    ])
+                  }
+                  className="price-slider"
+                  aria-label="Price range slider"
+                />
+              </div>
             </div>
 
             {/* Rating */}
@@ -1130,7 +1151,83 @@ const Shop = memo(() => {
           color: rgba(255, 255, 255, 0.8);
           white-space: nowrap;
         }
+        .price-slider-wrap {
+          position: relative;
+          width: 100%;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          margin-top: 0.5rem;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        .price-slider-track {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.18);
+          overflow: hidden;
+          pointer-events: none;
+        }
+        .price-slider-fill {
+          height: 100%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #f97316, #facc15);
+          transition: width 0.12s ease-out;
+        }
         .price-slider {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          height: 32px;
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent;
+          cursor: pointer;
+        }
+        .price-slider:focus {
+          outline: none;
+        }
+        .price-slider:focus-visible::-webkit-slider-thumb {
+          box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.35);
+        }
+        .price-slider::-webkit-slider-runnable-track {
+          height: 8px;
+          background: transparent;
+          border: none;
+        }
+        .price-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px;
+          height: 18px;
+          margin-top: -5px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #f97316, #facc15);
+          border: 2px solid rgba(255, 255, 255, 0.9);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          cursor: pointer;
+        }
+        .price-slider::-moz-range-track {
+          height: 8px;
+          background: transparent;
+          border: none;
+        }
+        .price-slider::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #f97316, #facc15);
+          border: 2px solid rgba(255, 255, 255, 0.9);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          cursor: pointer;
+        }
+        .filter-section .price-inputs {
           width: 100%;
         }
         .rating-filter {

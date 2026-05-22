@@ -16,7 +16,7 @@ const OptimizedImage = memo(({
   const imgRef = useRef(null);
   const observerRef = useRef(null);
 
-  const optimizedSrc = getOptimizedImageUrl(src);
+  const optimizedSrc = getOptimizedImageUrl(src, alt);
 
   useEffect(() => {
     // Intersection Observer for lazy loading

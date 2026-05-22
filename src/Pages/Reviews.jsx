@@ -114,156 +114,160 @@ const Reviews = () => {
       <Navbar />
       <section className="reviews-page">
         <div className="reviews-shell">
-          <div className="reviews-card">
-            <h2>Share Your Experience</h2>
-            <p className="subtitle">Choose what you'd like to review</p>
+          <div className="reviews-card-wrapper">
+            <div className="reviews-card">
+              <h2>Share Your Experience</h2>
+              <p className="subtitle">Choose what you'd like to review</p>
 
-            {/* Review Type Selection */}
-            <div className="review-type-selector">
-              <button
-                type="button"
-                className={`review-type-btn ${reviewType === "website" ? "active" : ""}`}
-                onClick={() => setReviewType("website")}
-              >
-                🌐 Website Review
-                <span className="review-type-desc">Share your overall experience with our platform</span>
-              </button>
-              <button
-                type="button"
-                className={`review-type-btn ${reviewType === "product" ? "active" : ""}`}
-                onClick={() => setReviewType("product")}
-              >
-                📦 Product Review
-                <span className="review-type-desc">Review products you've purchased</span>
-              </button>
-            </div>
-
-            {notLoggedInUser && (
-              <div className="warn">
-                Please login as a user to submit a review.
+              {/* Review Type Selection */}
+              <div className="review-type-selector">
+                <button
+                  type="button"
+                  className={`review-type-btn ${reviewType === "website" ? "active" : ""}`}
+                  onClick={() => setReviewType("website")}
+                >
+                  🌐 Website Review
+                  <span className="review-type-desc">Share your overall experience with our platform</span>
+                </button>
+                <button
+                  type="button"
+                  className={`review-type-btn ${reviewType === "product" ? "active" : ""}`}
+                  onClick={() => setReviewType("product")}
+                >
+                  📦 Product Review
+                  <span className="review-type-desc">Review products you've purchased</span>
+                </button>
               </div>
-            )}
 
-            {/* Website Review Form */}
-            {reviewType === "website" && (
-              <>
-                <div className="review-form-header">
-                  <h3>Website Review</h3>
-                  <p>Help us improve by sharing your experience with our platform</p>
+              {notLoggedInUser && (
+                <div className="warn">
+                  Please login as a user to submit a review.
                 </div>
-                {(submitting || creatingProductReview) && <LoaderOverlay show message="Submitting review..." />}
-                <form className="review-form" onSubmit={handleSubmit(onSubmit)}>
-                  <label>Rating (1-5 stars)</label>
-                  <select {...register("rating", { valueAsNumber: true })} defaultValue={5}>
-                    {[1,2,3,4,5].map(n => (
-                      <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
-                    ))}
-                  </select>
-                  <label>Your Message</label>
-                  <textarea
-                    rows={4}
-                    {...register("message", {
-                      required: "Message is required",
-                      minLength: { value: 10, message: "Min 10 characters" },
-                      maxLength: { value: 200, message: "Max 200 characters" },
-                    })}
-                    maxLength={200}
-                    placeholder="Tell us about your experience with our website..."
-                  />
-                  {errors.message && <span className="err">{errors.message.message}</span>}
-                  {submitError && <span className="err">{submitError}</span>}
-                  <button type="submit" disabled={submitting || notLoggedInUser}>
-                    Submit Website Review
-                  </button>
-                </form>
-              </>
-            )}
+              )}
 
-            {/* Product Review Form */}
-            {reviewType === "product" && (
-              <>
-                <div className="review-form-header">
-                  <h3>Product Review</h3>
-                  <p>Review products you've purchased and received</p>
-                </div>
-
-                {orderedProductsLoading && <LoaderOverlay show message="Loading your orders..." />}
-
-                {(submitting || creatingProductReview) && <LoaderOverlay show message="Submitting review..." />}
-
-                {userOrderedProducts.length === 0 && !orderedProductsLoading && (
-                  <div className="no-products-message">
-                    <p>You haven't purchased any products yet, or your orders haven't been delivered.</p>
-                    <p>Only delivered orders can be reviewed.</p>
+              {/* Website Review Form */}
+              {reviewType === "website" && (
+                <>
+                  <div className="review-form-header">
+                    <h3>Website Review</h3>
+                    <p>Help us improve by sharing your experience with our platform</p>
                   </div>
-                )}
-
-                {userOrderedProducts.length > 0 && (
+                  {(submitting || creatingProductReview) && <LoaderOverlay show message="Submitting review..." />}
                   <form className="review-form" onSubmit={handleSubmit(onSubmit)}>
-                    <label>Select Product to Review</label>
-                    <select
-                      value={selectedProduct}
-                      onChange={(e) => setSelectedProduct(e.target.value)}
-                      required
-                    >
-                      <option value="">Choose a product...</option>
-                      {userOrderedProducts.map((product) => (
-                        <option key={product._id} value={product._id}>
-                          {product.name} - Rs. {product.price}
-                        </option>
-                      ))}
-                    </select>
-
                     <label>Rating (1-5 stars)</label>
                     <select {...register("rating", { valueAsNumber: true })} defaultValue={5}>
                       {[1,2,3,4,5].map(n => (
                         <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
                       ))}
                     </select>
-
-                    <label>Your Review</label>
+                    <label>Your Message</label>
                     <textarea
                       rows={4}
                       {...register("message", {
-                        required: "Review message is required",
+                        required: "Message is required",
                         minLength: { value: 10, message: "Min 10 characters" },
                         maxLength: { value: 200, message: "Max 200 characters" },
                       })}
                       maxLength={200}
-                      placeholder="Share your experience with this product..."
+                      placeholder="Tell us about your experience with our website..."
                     />
                     {errors.message && <span className="err">{errors.message.message}</span>}
-                    {createProductReviewError && <span className="err">{createProductReviewError}</span>}
-                    <button type="submit" disabled={creatingProductReview || notLoggedInUser || !selectedProduct}>
-                      Submit Product Review
+                    {submitError && <span className="err">{submitError}</span>}
+                    <button type="submit" disabled={submitting || notLoggedInUser}>
+                      Submit Website Review
                     </button>
                   </form>
-                )}
-              </>
-            )}
+                </>
+              )}
+
+              {/* Product Review Form */}
+              {reviewType === "product" && (
+                <>
+                  <div className="review-form-header">
+                    <h3>Product Review</h3>
+                    <p>Review products you've purchased and received</p>
+                  </div>
+
+                  {orderedProductsLoading && <LoaderOverlay show message="Loading your orders..." />}
+
+                  {(submitting || creatingProductReview) && <LoaderOverlay show message="Submitting review..." />}
+
+                  {userOrderedProducts.length === 0 && !orderedProductsLoading && (
+                    <div className="no-products-message">
+                      <p>You haven't purchased any products yet, or your orders haven't been delivered.</p>
+                      <p>Only delivered orders can be reviewed.</p>
+                    </div>
+                  )}
+
+                  {userOrderedProducts.length > 0 && (
+                    <form className="review-form" onSubmit={handleSubmit(onSubmit)}>
+                      <label>Select Product to Review</label>
+                      <select
+                        value={selectedProduct}
+                        onChange={(e) => setSelectedProduct(e.target.value)}
+                        required
+                      >
+                        <option value="">Choose a product...</option>
+                        {userOrderedProducts.map((product) => (
+                          <option key={product._id} value={product._id}>
+                            {product.name} - Rs. {product.price}
+                          </option>
+                        ))}
+                      </select>
+
+                      <label>Rating (1-5 stars)</label>
+                      <select {...register("rating", { valueAsNumber: true })} defaultValue={5}>
+                        {[1,2,3,4,5].map(n => (
+                          <option key={n} value={n}>{"★".repeat(n)} ({n})</option>
+                        ))}
+                      </select>
+
+                      <label>Your Review</label>
+                      <textarea
+                        rows={4}
+                        {...register("message", {
+                          required: "Review message is required",
+                          minLength: { value: 10, message: "Min 10 characters" },
+                          maxLength: { value: 200, message: "Max 200 characters" },
+                        })}
+                        maxLength={200}
+                        placeholder="Share your experience with this product..."
+                      />
+                      {errors.message && <span className="err">{errors.message.message}</span>}
+                      {createProductReviewError && <span className="err">{createProductReviewError}</span>}
+                      <button type="submit" disabled={creatingProductReview || notLoggedInUser || !selectedProduct}>
+                        Submit Product Review
+                      </button>
+                    </form>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="reviews-list">
-            <h3>What people say</h3>
-            {approved.length === 0 ? (
-              <div className="empty">No reviews yet.</div>
-            ) : (
-              <div className="review-grid">
-                {approved.map((r) => (
-                  <div className="review-card" key={r._id || r.id}>
-                    <div className="review-head">
-                      <div className="avatar">{(r.name || "U").charAt(0).toUpperCase()}</div>
-                      <div>
-                        <div className="name">{r.name || "User"}</div>
-                        <div className="stars">{"★".repeat(r.rating || 5)}</div>
+          <div className="reviews-list-wrapper">
+            <div className="reviews-list">
+              <h3>What people say</h3>
+              {approved.length === 0 ? (
+                <div className="empty">No reviews yet.</div>
+              ) : (
+                <div className="review-grid">
+                  {approved.map((r) => (
+                    <div className="review-card" key={r._id || r.id}>
+                      <div className="review-head">
+                        <div className="avatar">{(r.name || "U").charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div className="name">{r.name || "User"}</div>
+                          <div className="stars">{"★".repeat(r.rating || 5)}</div>
+                        </div>
                       </div>
+                      <p className="msg">{r.message}</p>
+                      <div className="time">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}</div>
                     </div>
-                    <p className="msg">{r.message}</p>
-                    <div className="time">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -285,6 +289,16 @@ const Reviews = () => {
           grid-template-columns: 1fr 1fr;
           gap: 2.5rem;
           margin-top: 20px;
+          align-items: stretch;
+        }
+        .reviews-card-wrapper {
+          width: 100%;
+          display: flex;
+        }
+        .reviews-list-wrapper {
+          width: 100%;
+          position: relative;
+          display: flex;
         }
         @media (max-width: 950px) {
           .reviews-page { padding-top: 0 !important; }
@@ -299,6 +313,9 @@ const Reviews = () => {
           .reviews-card h2 { font-size: 1.4rem; text-align: center; }
           .subtitle { font-size: 0.85rem; text-align: center; }
           .reviews-list h3 { font-size: 1.25rem; text-align: center; }
+          .review-grid {
+            max-height: 450px;
+          }
         }
         .reviews-card {
           background: rgba(30, 41, 59, 0.7);
@@ -308,7 +325,7 @@ const Reviews = () => {
           color: #fff;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
           backdrop-filter: blur(12px);
-          height: fit-content;
+          height: 100%;
           width: 100%;
         }
         .reviews-card h2 { margin: 0 0 0.5rem 0; font-size: 1.7rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; }
@@ -419,11 +436,48 @@ const Reviews = () => {
           color: #fff;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
           backdrop-filter: blur(12px);
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+        @media (min-width: 951px) {
+          .reviews-list {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+          }
         }
         .review-grid {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
+          flex: 1;
+          overflow-y: auto;
+          padding-right: 0.5rem;
+        }
+        .review-grid::-webkit-scrollbar {
+          width: 6px;
+        }
+        .review-grid::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.2);
+          border-radius: 3px;
+        }
+        .review-grid::-webkit-scrollbar-thumb {
+          background: rgba(59, 130, 246, 0.3);
+          border-radius: 3px;
+        }
+        .review-grid::-webkit-scrollbar-thumb:hover {
+          background: rgba(59, 130, 246, 0.5);
+        }
+        .reviews-list .empty {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          font-size: 1.1rem;
         }
         .review-card {
           background: rgba(15, 23, 42, 0.4);

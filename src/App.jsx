@@ -51,6 +51,7 @@ import { useLocation } from "react-router-dom";
 import ScrollToTop from "./Components/ScrollToTop";
 import { ToastContainer } from "./Components/Toast";
 import SplashScreen from "./Components/SplashScreen";
+import AdminProtectedRoute from "./Components/AdminComponent/AdminProtectedRoute";
 
 const AppContent = () => {
   const [isSplashComplete, setIsSplashComplete] = useState(false);
@@ -104,8 +105,8 @@ const AppContent = () => {
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
 
           {/* Admin Routes */}
-          <Route path="/admin/*" element={<Admin />} />
-          <Route path="/admin/chat" element={<AdminChat />} />
+          <Route path="/admin/*" element={<AdminProtectedRoute><Admin /></AdminProtectedRoute>} />
+          <Route path="/admin/chat" element={<AdminProtectedRoute><AdminChat /></AdminProtectedRoute>} />
 
           {/* Seller Routes */}
           <Route path="/seller-admin/*" element={<SellerAdmin />} />

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import LoaderOverlay from "../Components/LoaderOverlay";
-import { selectUser } from "../Features/Backend/UserSlice";
+import { selectUser, selectUserInitializing } from "../Features/Backend/UserSlice";
 import { API_BASE_URL } from '../config';
 import {
   FaBoxOpen,
@@ -39,6 +39,7 @@ const MyOrders = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useSelector(selectUser);
+  const userInitializing = useSelector(selectUserInitializing);
 
   const authHeaders = useMemo(() => {
     const rawToken =
@@ -58,7 +59,7 @@ const MyOrders = () => {
       });
       return res.data?.data || [];
     },
-    enabled: !!(localStorage.getItem("token") && user),
+    enabled: !!localStorage.getItem("token"),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -66,10 +67,13 @@ const MyOrders = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    if (userInitializing) {
+      return;
+    }
     if (!token || !user) {
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [user, userInitializing, navigate]);
 
   const canReturnOrder = (order) => {
     const status = (order.status || "").toLowerCase();
@@ -127,7 +131,7 @@ const MyOrders = () => {
 
   return (
     <>
-      <LoaderOverlay show={loading} message="Loading your orders..." />
+      <LoaderOverlay show={loading || userInitializing} message="Loading your orders..." />
       <Navbar />
       <div className="orders-page">
         <style jsx>{`
@@ -273,6 +277,25 @@ const MyOrders = () => {
             .title span { font-size: 0.85rem !important; }
             .orders-grid { grid-template-columns: 1fr; gap: 1.2rem; }
             .order-card { padding: 1.2rem; }
+          }
+          .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(12px);
+            max-width: 500px;
+            margin: 2rem auto;
+          }
+          .empty-icon {
+            font-size: 3rem;
+            color: #64748b;
+            margin-bottom: 1rem;
           }
         `}</style>
 

@@ -12,7 +12,9 @@ import {
   selectFavoritesLoading,
   selectFavoritesError,
   deleteFavorite,
-  selectDeleteFavoriteLoading
+  selectDeleteFavoriteLoading,
+  getProductIdFromFavorite,
+  dedupeFavorites,
 } from "../Features/Backend/FavoriteSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { selectSeller } from "../Features/Backend/SellerSlice";
@@ -23,7 +25,7 @@ const Favorites = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
-  const favorites = useSelector(selectFavorites) || [];
+  const favorites = dedupeFavorites(useSelector(selectFavorites) || []);
   const loading = useSelector(selectFavoritesLoading);
   const error = useSelector(selectFavoritesError);
   const deleteLoading = useSelector(selectDeleteFavoriteLoading);
@@ -38,13 +40,23 @@ const Favorites = () => {
     }
   }, [user, seller, navigate, token]);
 
-  const handleDelete = async (favoriteId, productId) => {
-    setDeletingId(favoriteId);
+  useEffect(() => {
+    const loginType = localStorage.getItem("loginType");
+    if (token && loginType !== "seller") {
+      dispatch(fetchFavorites());
+    }
+  }, [dispatch, token]);
+
+  const handleDelete = async (favorite) => {
+    const favoriteId = favorite._id;
+    const productId = getProductIdFromFavorite(favorite);
+    setDeletingId(favoriteId || productId);
     try {
       await dispatch(deleteFavorite({ favoriteId, productId })).unwrap();
     } catch (err) {
       console.error("Error deleting favorite:", err);
-      alert(err || "Failed to remove favorite. Please try again.");
+      alert(typeof err === "string" ? err : "Failed to remove favorite. Please try again.");
+      dispatch(fetchFavorites());
     } finally {
       setDeletingId(null);
     }
@@ -65,7 +77,11 @@ const Favorites = () => {
       discount: product.pdis || product.discount || 0,
       rating: product.rating || 0,
       reviews: product.reviewCount || 0,
-      inStock: (product.totalStock > 0 || product.pqty > 0) && product.pstatus === "active",
+      inStock: (() => {
+        const stockQty = Number(product.totalStock ?? product.pqty ?? 0);
+        const status = (product.pstatus || "active").toLowerCase();
+        return stockQty > 0 && status === "active";
+      })(),
     };
   };
 
@@ -162,14 +178,7 @@ const Favorites = () => {
             >
               <AnimatePresence>
                 {favorites
-                  .filter(favorite => {
-                    // Allow optimistic entries (just added) and active products
-                    if (favorite.isOptimistic) return true;
-                    const product = favorite.productId || {};
-                    // If productId is a string (not populated), show it
-                    if (typeof product === 'string') return true;
-                    return product.pstatus === "active";
-                  })
+                  .filter((favorite) => getProductIdFromFavorite(favorite))
                   .map((favorite) => {
                   const product = getProductData(favorite);
                   const isDeleting = deletingId === favorite._id;
@@ -202,7 +211,7 @@ const Favorites = () => {
                         )}
                         <motion.button
                           className={`delete-button ${isDeleting ? "deleting" : ""}`}
-                          onClick={() => handleDelete(favorite._id, product.productId)}
+                          onClick={() => handleDelete(favorite)}
                           disabled={isDeleting}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}

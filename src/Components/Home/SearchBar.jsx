@@ -33,13 +33,13 @@ const SearchBar = () => {
 
     // Set new timeout for debounced search
     searchTimeoutRef.current = setTimeout(() => {
-      if (value.trim().length > 0) {
+      if (value.trim().length >= 2) {
         performSearch(value);
         setShowResults(true);
       } else {
         setShowResults(false);
       }
-    }, 150); // 150ms delay
+    }, 300);
   };
 
   // Handle search button click

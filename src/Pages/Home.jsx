@@ -183,7 +183,7 @@ const Home = memo(() => {
           title="For You"
           subtitle={userId ? "Personalized recommendations" : "Recommended for you"}
           products={forYouRecommendations}
-          isLoading={forYouLoading}
+          isLoading={forYouLoading && forYouRecommendations.length === 0}
           bgColor="rgba(51, 68, 102, 0.25)"
         />
         <ProductCarousel 

@@ -1,15 +1,24 @@
 import React, { useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { selectUser, selectUserInitializing } from '../../Features/Backend/UserSlice';
+import { selectUser, selectUserInitializing, fetchCurrentUser } from '../../Features/Backend/UserSlice';
 import { selectSeller } from '../../Features/Backend/SellerSlice';
 import LoaderOverlay from '../LoaderOverlay';
 
 const AdminProtectedRoute = ({ children }) => {
+  const dispatch = useDispatch();
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
   const initializing = useSelector(selectUserInitializing);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const loginType = localStorage.getItem('loginType');
+    if (token && loginType === 'user' && !user?.data) {
+      dispatch(fetchCurrentUser());
+    }
+  }, [dispatch, user?.data]);
 
   useEffect(() => {
     // Wait for initialization to complete

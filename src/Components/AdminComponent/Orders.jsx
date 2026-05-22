@@ -57,8 +57,9 @@ const Orders = () => {
   const { data: orders = [], isLoading: loading, error: queryError, refetch: loadOrders } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
-      const token = localStorage.getItem("token");
-      if (!token) throw new Error("Please login as admin to view orders.");
+      const rawToken = localStorage.getItem("token");
+      if (!rawToken) throw new Error("Please login as admin to view orders.");
+      const token = rawToken.replace(/^Bearer\s+/i, "");
       const res = await axios.get(`${API_BASE}/checkout/admin`, {
         headers: { auth_token: token }
       });

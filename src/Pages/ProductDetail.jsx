@@ -9,9 +9,9 @@ import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLay
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
-import { addToCart, fetchCartItems, fetchCartCount, selectAddCartLoading, selectAddCartError, selectCartItems } from "../Features/Backend/CartSlice";
+import { addToCart, fetchCartItems, fetchCartCount, resetAddCartLoading, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
-import { addToFavorites, fetchFavorites, deleteFavorite, checkFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites } from "../Features/Backend/FavoriteSlice";
+import { addToFavorites, deleteFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
 import { fetchUserOrderedProducts, createProductReview, selectUserOrderedProducts, selectCreatingProductReview, selectCreateProductReviewError } from "../Features/Backend/ReviewSlice";
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { trackViewedProduct } from "../utils/userBehavior";
@@ -32,9 +32,29 @@ function ProductDetail() {
   const [addingToCart, setAddingToCart] = useState(false);
 
   const user = useSelector(selectUser);
-  const addCartLoading = useSelector(selectAddCartLoading);
-  const addCartError = useSelector(selectAddCartError);
   const cartItems = useSelector(selectCartItems) || [];
+
+  const parseVariantList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value
+        .flatMap((v) => {
+          if (typeof v === "string" && v.includes(",")) {
+            return v.split(",").map((s) => s.trim());
+          }
+          return v ? [String(v).trim()] : [];
+        })
+        .filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  useEffect(() => {
+    dispatch(resetAddCartLoading());
+  }, [dispatch]);
   const favorites = useSelector(selectFavorites) || [];
   const addFavoriteLoading = useSelector(selectAddFavoriteLoading);
   const addFavoriteError = useSelector(selectAddFavoriteError);
@@ -249,29 +269,32 @@ function ProductDetail() {
   const sellerName = product?.sellerid?.sname || product?.sellerid?.name || product?.sellerid || "Unknown Seller";
   const categoryName = product?.catid?.name || product?.catid?.cname || product?.catid || "N/A";
   const subcategoryName = product?.subcatid?.name || product?.subcatid?.scname || product?.subcatid || "N/A";
-  const sizes = product ? (Array.isArray(product.psize) ? product.psize : []) : [];
-  const colors = product ? (Array.isArray(product.pcolor) ? product.pcolor : []) : [];
+  const sizes = product ? parseVariantList(product.psize) : [];
+  const colors = product ? parseVariantList(product.pcolor) : [];
+  const stockQty = Number(product?.totalStock ?? product?.pqty ?? 0);
 
   // Check if product is in favorites
-  const isInFavorites = favorites.some((fav) => {
-    const favProductId = fav.productId?._id || fav.productId;
-    return favProductId === product._id;
-  });
+  const isInFavorites = favorites.some(
+    (fav) => getProductIdFromFavorite(fav) === String(product._id)
+  );
 
 
   const handleAddToCart = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !user) {
+    const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
+    const loginType = localStorage.getItem("loginType");
+    if (!token || loginType === "seller") {
       setToast({
         type: "error",
-        message: "Please login to add items to cart",
+        message: "Please login as a customer to add items to cart",
         icon: <FaExclamationCircle />,
       });
       setTimeout(() => navigate("/login"), 2000);
       return;
     }
 
-    if (product.pstatus === "outofstock" || product.pstatus === "inactive") {
+    if (addingToCart) return;
+
+    if (product.pstatus === "outofstock" || product.pstatus === "inactive" || stockQty < 1) {
       setToast({
         type: "error",
         message: "Product is not available",
@@ -302,9 +325,8 @@ function ProductDetail() {
 
     // Check if item already exists in cart with same color and size
     const existingItem = cartItems.find((item) => {
-      const itemProductId = item.productId?._id || item.productId;
       return (
-        itemProductId === product._id &&
+        getCartProductId(item) === String(product._id) &&
         item.color === (selectedColor || null) &&
         item.size === (selectedSize || null)
       );
@@ -320,18 +342,20 @@ function ProductDetail() {
     }
 
     setAddingToCart(true);
+    const safetyTimer = setTimeout(() => setAddingToCart(false), 22000);
 
     try {
-      await dispatch(addToCart({
-        productId: product._id,
-        quantity: 1,
-        color: selectedColor || null,
-        size: selectedSize || null,
-      })).unwrap();
-      
-      dispatch(fetchCartItems());
+      await dispatch(
+        addToCart({
+          productId: product._id,
+          quantity: 1,
+          color: selectedColor || null,
+          size: selectedSize || null,
+        })
+      ).unwrap();
+
       dispatch(fetchCartCount());
-      
+
       setToast({
         type: "success",
         message: "Product added to cart successfully!",
@@ -340,11 +364,13 @@ function ProductDetail() {
     } catch (error) {
       setToast({
         type: "error",
-        message: error || "Failed to add to cart",
+        message: typeof error === "string" ? error : "Failed to add to cart",
         icon: <FaExclamationCircle />,
       });
     } finally {
+      clearTimeout(safetyTimer);
       setAddingToCart(false);
+      dispatch(resetAddCartLoading());
     }
   };
 
@@ -392,7 +418,7 @@ function ProductDetail() {
     try {
       if (isInFavorites) {
         // Remove from favorites
-        await dispatch(deleteFavorite({ productId: product._id })).unwrap();
+        await dispatch(deleteFavorite({ productId: String(product._id) })).unwrap();
 
         setToast({
           type: "success",
@@ -1710,9 +1736,9 @@ function ProductDetail() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddToCart}
-                  disabled={addingToCart || addCartLoading || product.pstatus !== "active" || product.totalStock < 1}
+                  disabled={addingToCart || product.pstatus !== "active" || stockQty < 1}
                 >
-                  {addingToCart || addCartLoading ? (
+                  {addingToCart ? (
                     <>
                       <FaSpinner className="animate-spin" /> Adding...
                     </>

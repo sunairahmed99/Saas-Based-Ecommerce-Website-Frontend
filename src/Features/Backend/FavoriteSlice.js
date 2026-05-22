@@ -1,158 +1,193 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from '../../config';
+import { API_BASE_URL } from "../../config";
+import { getAuthToken } from "../../utils/auth";
+import { logout } from "./UserSlice";
 
 const API_URL = `${API_BASE_URL}/favorite`;
 
-// Get all favorites for a user or seller
+const isValidMongoId = (id) => /^[a-f\d]{24}$/i.test(String(id || ""));
+
+export const getProductIdFromFavorite = (favorite) => {
+  if (!favorite) return null;
+  const product = favorite.productId;
+  if (product && typeof product === "object" && product._id) {
+    return String(product._id);
+  }
+  if (product) return String(product);
+  return null;
+};
+
+export const dedupeFavorites = (list) => {
+  const seen = new Set();
+  const result = [];
+  for (const fav of list || []) {
+    const pid = getProductIdFromFavorite(fav);
+    if (!pid || seen.has(pid)) continue;
+    seen.add(pid);
+    result.push(fav);
+  }
+  return result;
+};
+
+const upsertFavorite = (list, favorite, productOrId) => {
+  const pid = getProductIdFromFavorite(favorite);
+  if (!pid) return dedupeFavorites(list);
+
+  const fullProduct = typeof productOrId === "object" ? productOrId : null;
+  const entry = {
+    ...favorite,
+    productId: fullProduct || favorite.productId,
+    isOptimistic: false,
+  };
+
+  const rest = (list || []).filter((f) => getProductIdFromFavorite(f) !== pid);
+  return dedupeFavorites([entry, ...rest]);
+};
+
+const removeFavoriteFromList = (list, { favoriteId, productId }) => {
+  const pid = productId ? String(productId) : null;
+  return (list || []).filter((f) => {
+    if (pid && getProductIdFromFavorite(f) === pid) return false;
+    if (favoriteId && String(f._id) === String(favoriteId)) return false;
+    return true;
+  });
+};
+
+let latestFetchId = 0;
+
 export const fetchFavorites = createAsyncThunk(
   "favorites/fetchFavorites",
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue }) => {
+    const fetchId = ++latestFetchId;
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const loginType = localStorage.getItem("loginType");
 
-      if (!token) {
-        return [];
+      if (!token || loginType === "seller") {
+        return { items: [], fetchId };
       }
-
-      // Sellers don't use favorites functionality, return empty array
-      if (loginType === "seller") {
-        return [];
-      }
-
-      const headers = {
-        auth_token: token,
-      };
 
       const res = await axios.get(`${API_URL}/getall`, {
-        headers,
+        headers: { auth_token: token },
       });
 
-      return res.data.data || [];
+      return {
+        items: dedupeFavorites(res.data?.data || []),
+        fetchId,
+      };
     } catch (err) {
-      // Gracefully ignore 404s (endpoint missing for this account type)
       if (err?.response?.status === 404) {
-        return [];
+        return { items: [], fetchId };
       }
-      // If token is invalid, clear it and return empty array
       if (err?.response?.status === 401) {
         localStorage.removeItem("token");
         localStorage.removeItem("loginType");
-        return [];
+        return { items: [], fetchId };
       }
-      console.error("Error fetching favorites:", err.response?.data || err.message);
       return rejectWithValue(
-        err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to fetch favorites"
+        err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message ||
+          "Failed to fetch favorites"
       );
     }
+  },
+  {
+    condition: (_, { getState }) => !getState().favorites.loading,
   }
 );
 
-// Add product to favorites
 export const addToFavorites = createAsyncThunk(
   "favorites/addToFavorites",
-  async (productOrId, { rejectWithValue, getState }) => {
+  async (productOrId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const loginType = localStorage.getItem("loginType");
 
       if (!token) {
         return rejectWithValue("Please login to add favorites");
       }
-
-      // Sellers don't use favorites functionality
       if (loginType === "seller") {
         return rejectWithValue("Sellers cannot add favorites");
       }
 
-      const productId = typeof productOrId === "object" ? productOrId._id : productOrId;
-
-      const headers = {
-        auth_token: token,
-      };
+      const productId =
+        typeof productOrId === "object" ? productOrId._id : productOrId;
 
       const res = await axios.post(
         `${API_URL}/add`,
         { productId },
-        {
-          headers,
-        }
+        { headers: { auth_token: token } }
       );
 
-      return res.data.data;
+      return { data: res.data?.data, productOrId };
     } catch (err) {
-      console.error("Error adding to favorites:", err.response?.data || err.message);
-      return rejectWithValue(
-        err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to add to favorites"
-      );
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to add to favorites";
+      return rejectWithValue(msg);
     }
   }
 );
 
-// Delete favorite by favorite ID or productId
 export const deleteFavorite = createAsyncThunk(
   "favorites/deleteFavorite",
-  async ({ favoriteId, productId }, { rejectWithValue, getState }) => {
+  async ({ favoriteId, productId }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const loginType = localStorage.getItem("loginType");
 
-      // Sellers don't use favorites functionality
       if (loginType === "seller") {
         return rejectWithValue("Sellers cannot delete favorites");
       }
+      if (!token) {
+        return rejectWithValue("Please login to remove favorites");
+      }
 
-      const headers = {
-        ...(token ? { auth_token: token } : {}),
-      };
+      const headers = { auth_token: token };
+      const pid = productId ? String(productId) : null;
 
-      let res;
-
-      if (favoriteId) {
-        // Delete by favorite ID
-        res = await axios.delete(`${API_URL}/delete/${favoriteId}`, {
-          headers,
-        });
-      } else if (productId) {
-        // Delete by productId
-        res = await axios.delete(`${API_URL}/remove`, {
-          data: { productId },
+      if (favoriteId && isValidMongoId(favoriteId)) {
+        await axios.delete(`${API_URL}/delete/${favoriteId}`, { headers });
+      } else if (pid) {
+        await axios.delete(`${API_URL}/remove`, {
+          data: { productId: pid },
           headers,
         });
       } else {
-        return rejectWithValue("Favorite ID or Product ID is required");
+        return rejectWithValue("Product ID is required to remove favorite");
       }
 
-      return { favoriteId, productId };
+      return { favoriteId, productId: pid };
     } catch (err) {
-      console.error("Delete favorite error:", err);
+      if (err?.response?.status === 404) {
+        return { favoriteId, productId: productId ? String(productId) : null, notFound: true };
+      }
       return rejectWithValue(
-        err?.response?.data?.message || err?.message || "Failed to remove favorite"
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to remove favorite"
       );
     }
   }
 );
 
-// Check if product is in favorites
 export const checkFavorite = createAsyncThunk(
   "favorites/checkFavorite",
-  async (productId, { rejectWithValue, getState }) => {
+  async (productId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const loginType = localStorage.getItem("loginType");
 
-      // Sellers don't use favorites functionality, return false
       if (loginType === "seller") {
         return { isFavorite: false };
       }
 
-      const headers = {
-        ...(token ? { auth_token: token } : {}),
-      };
-
       const res = await axios.get(`${API_URL}/check/${productId}`, {
-        headers,
+        headers: { ...(token ? { auth_token: token } : {}) },
       });
       return res.data;
     } catch (err) {
@@ -168,7 +203,6 @@ const FavoriteSlice = createSlice({
 
   initialState: {
     favorites: [],
-    previousFavorites: null, // backup for rollback
     loading: false,
     error: null,
     addLoading: false,
@@ -186,115 +220,70 @@ const FavoriteSlice = createSlice({
       state.deleteError = null;
       state.checkError = null;
     },
+    clearFavorites: (state) => {
+      state.favorites = [];
+      state.loading = false;
+      state.error = null;
+      state.addLoading = false;
+      state.addError = null;
+      state.deleteLoading = false;
+      state.deleteError = null;
+    },
   },
 
   extraReducers: (builder) => {
     builder
-      // Fetch favorites
       .addCase(fetchFavorites.pending, (state) => {
-        // Only show loading spinner on first fetch (when no data exists yet)
-        if (state.favorites.length === 0) {
-          state.loading = true;
-        }
+        state.loading = true;
         state.error = null;
       })
       .addCase(fetchFavorites.fulfilled, (state, action) => {
         state.loading = false;
-        state.favorites = action.payload;
+        if (action.payload.fetchId === latestFetchId) {
+          state.favorites = action.payload.items;
+        }
       })
       .addCase(fetchFavorites.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-      // Add to favorites
-      .addCase(addToFavorites.pending, (state, action) => {
+
+      .addCase(addToFavorites.pending, (state) => {
         state.addLoading = true;
         state.addError = null;
-        // Back up for rollback
-        state.previousFavorites = [...state.favorites];
-        // Optimistically add favorite
-        const productOrId = action.meta.arg;
-        const productId = typeof productOrId === "object" ? productOrId._id : productOrId;
-        const product = typeof productOrId === "object" ? productOrId : null;
-
-        if (productId) {
-          const exists = state.favorites.some(
-            (fav) => (fav.productId?._id || fav.productId) === productId
-          );
-          if (!exists) {
-            state.favorites.push({
-              _id: `temp-${Date.now()}`,
-              productId: product || productId,
-              isOptimistic: true
-            });
-          }
-        }
       })
       .addCase(addToFavorites.fulfilled, (state, action) => {
         state.addLoading = false;
-        state.addError = null;
-        state.previousFavorites = null; // Clear backup
-        // Replace optimistic favorite with real one
-        if (action.payload) {
-          const productId = action.payload.productId?._id || action.payload.productId;
-          const productOrId = action.meta.arg;
-          const fullProduct = typeof productOrId === "object" ? productOrId : null;
-
-          state.favorites = state.favorites.map((fav) => {
-            const favProductId = fav.productId?._id || fav.productId;
-            if (favProductId === productId) {
-              return {
-                ...action.payload,
-                productId: fullProduct || fav.productId
-              };
-            }
-            return fav;
-          });
+        const { data, productOrId } = action.payload || {};
+        if (data) {
+          state.favorites = upsertFavorite(state.favorites, data, productOrId);
         }
       })
       .addCase(addToFavorites.rejected, (state, action) => {
         state.addLoading = false;
         state.addError = action.payload;
-        // Rollback to previous state
-        if (state.previousFavorites) {
-          state.favorites = state.previousFavorites;
-          state.previousFavorites = null;
-        }
-        console.error("Add to favorites rejected:", action.payload);
       })
-      // Delete favorite
+
       .addCase(deleteFavorite.pending, (state, action) => {
         state.deleteLoading = true;
         state.deleteError = null;
-        // Back up for rollback
-        state.previousFavorites = [...state.favorites];
-        // Optimistically remove from favorites array
-        const { favoriteId, productId } = action.meta.arg || {};
-        if (favoriteId) {
-          state.favorites = state.favorites.filter(
-            (fav) => fav._id !== favoriteId
-          );
-        } else if (productId) {
-          state.favorites = state.favorites.filter((fav) => {
-            const favProductId = fav.productId?._id || fav.productId;
-            return favProductId !== productId;
-          });
-        }
+        state.favorites = removeFavoriteFromList(
+          state.favorites,
+          action.meta.arg || {}
+        );
       })
       .addCase(deleteFavorite.fulfilled, (state, action) => {
         state.deleteLoading = false;
-        state.previousFavorites = null; // Clear backup
+        state.favorites = removeFavoriteFromList(
+          state.favorites,
+          action.payload || {}
+        );
       })
       .addCase(deleteFavorite.rejected, (state, action) => {
         state.deleteLoading = false;
         state.deleteError = action.payload;
-        // Rollback to previous state
-        if (state.previousFavorites) {
-          state.favorites = state.previousFavorites;
-          state.previousFavorites = null;
-        }
       })
-      // Check favorite
+
       .addCase(checkFavorite.pending, (state) => {
         state.checkLoading = true;
         state.checkError = null;
@@ -305,15 +294,24 @@ const FavoriteSlice = createSlice({
       .addCase(checkFavorite.rejected, (state, action) => {
         state.checkLoading = false;
         state.checkError = action.payload;
+      })
+
+      .addCase(logout, (state) => {
+        state.favorites = [];
+        state.loading = false;
+        state.error = null;
+        state.addLoading = false;
+        state.addError = null;
+        state.deleteLoading = false;
+        state.deleteError = null;
       });
   },
 });
 
-export const { clearFavoritesError } = FavoriteSlice.actions;
+export const { clearFavoritesError, clearFavorites } = FavoriteSlice.actions;
 
 export default FavoriteSlice.reducer;
 
-// Selectors
 export const selectFavorites = (state) => state.favorites.favorites;
 export const selectFavoritesLoading = (state) => state.favorites.loading;
 export const selectFavoritesError = (state) => state.favorites.error;
@@ -324,3 +322,11 @@ export const selectDeleteFavoriteError = (state) => state.favorites.deleteError;
 export const selectCheckFavoriteLoading = (state) => state.favorites.checkLoading;
 export const selectCheckFavoriteError = (state) => state.favorites.checkError;
 
+/** Whether a product id is in the current favorites list */
+export const selectIsProductFavorite = (productId) => (state) => {
+  if (!productId) return false;
+  const pid = String(productId);
+  return (state.favorites.favorites || []).some(
+    (f) => getProductIdFromFavorite(f) === pid
+  );
+};
