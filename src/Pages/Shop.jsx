@@ -18,8 +18,13 @@ import { fetchSeller, selectSellers } from "../Features/Backend/SellerSlice";
 import { fetchBanners, selectBanners } from "../Features/Backend/BannerSlice";
 import SEOHead from "../Components/SEOHead";
 import { trackCategoryVisit } from "../utils/userBehavior";
-import { selectProducts } from "../Features/Backend/ProductSlice";
 import OptimizedImage from "../Components/OptimizedImage";
+
+const getRefId = (value) => {
+  if (value == null) return null;
+  if (typeof value === "object" && value._id != null) return String(value._id);
+  return String(value);
+};
 
 const Shop = memo(() => {
   const dispatch = useDispatch();
@@ -33,7 +38,6 @@ const Shop = memo(() => {
   const subcategories = useSelector(selectsubcategories) || [];
   const sellers = useSelector(selectSellers) || [];
   const dynamicBanners = useSelector(selectBanners) || [];
-  const reduxProducts = useSelector(selectProducts) || [];
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [processingIds, setProcessingIds] = useState(new Set());
   const [toast, setToast] = useState(null);
@@ -86,6 +90,24 @@ const Shop = memo(() => {
   const subcategoryIdParam = searchParams.get('subcategory');
   const sellerIdParam = searchParams.get('seller');
   const searchQueryParam = searchParams.get('search');
+  const hasScopedUrlFilter = Boolean(
+    categoryIdParam || subcategoryIdParam || sellerIdParam || searchQueryParam
+  );
+
+  const scopeProducts = useCallback((products) => {
+    if (!Array.isArray(products)) return [];
+
+    if (subcategoryIdParam) {
+      return products.filter((p) => getRefId(p?.subcatid) === String(subcategoryIdParam));
+    }
+    if (categoryIdParam) {
+      return products.filter((p) => getRefId(p?.catid) === String(categoryIdParam));
+    }
+    if (sellerIdParam) {
+      return products.filter((p) => getRefId(p?.sellerid) === String(sellerIdParam));
+    }
+    return products;
+  }, [categoryIdParam, subcategoryIdParam, sellerIdParam]);
 
   const fetchShopProducts = async () => {
     let url = `${API_BASE_URL}/product/getall`;
@@ -103,36 +125,31 @@ const Shop = memo(() => {
     }
 
     const res = await axios.get(url, config);
-    return res.data?.data || [];
+    const payload = res.data?.data ?? res.data?.products ?? [];
+    const list = Array.isArray(payload) ? payload : [];
+    return scopeProducts(list);
   };
 
   const { data: rawProducts = [], isLoading: productsLoading } = useQuery({
     queryKey: ['shopProducts', { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam }],
     queryFn: fetchShopProducts,
     staleTime: 5 * 60 * 1000,
-    placeholderData: keepPreviousData,
-    initialData: () => {
-      if (reduxProducts && reduxProducts.length > 0) {
-        if (subcategoryIdParam) {
-          return reduxProducts.filter(p => 
-            p && (p.subcatid === subcategoryIdParam || p.subcatid?._id === subcategoryIdParam)
-          );
-        } else if (categoryIdParam) {
-          return reduxProducts.filter(p => 
-            p && (p.catid === categoryIdParam || p.catid?._id === categoryIdParam)
-          );
-        } else if (sellerIdParam) {
-          return reduxProducts.filter(p => 
-            p && (p.sellerid === sellerIdParam || p.sellerid?._id === sellerIdParam)
-          );
-        } else if (!searchQueryParam) {
-          return reduxProducts;
-        }
-      }
-      return undefined;
-    },
-    initialDataUpdatedAt: () => Date.now()
+    placeholderData: hasScopedUrlFilter ? undefined : keepPreviousData,
   });
+
+  // Sync sidebar category with URL when opening a category from home/top categories
+  useEffect(() => {
+    if (categoryIdParam) {
+      const cat = categories.find((c) => String(c._id) === String(categoryIdParam));
+      if (cat) {
+        setSelectedCategory(cat.name || cat.cname || "All");
+      }
+      return;
+    }
+    if (!subcategoryIdParam && !sellerIdParam && !searchQueryParam) {
+      setSelectedCategory("All");
+    }
+  }, [categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, categories]);
 
   const maxPriceLimit = useMemo(() => {
     if (!rawProducts || rawProducts.length === 0) return 500000;
@@ -290,8 +307,12 @@ const Shop = memo(() => {
       );
     }
 
-    // Category selection filter (UI filter)
-    if (selectedCategory !== "All") {
+    // Sidebar category filter only on general shop (URL category/subcategory is authoritative)
+    if (
+      selectedCategory !== "All" &&
+      !categoryIdParam &&
+      !subcategoryIdParam
+    ) {
       filtered = filtered.filter((p) => p.category === selectedCategory);
     }
 
@@ -325,12 +346,32 @@ const Shop = memo(() => {
     }
 
     return filtered;
-  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy, rawProducts, maxPriceLimit]);
+  }, [
+    searchQuery,
+    selectedCategory,
+    priceRange,
+    minRating,
+    sortBy,
+    rawProducts,
+    maxPriceLimit,
+    categoryIdParam,
+    subcategoryIdParam,
+  ]);
 
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, priceRange, minRating, sortBy]);
+  }, [
+    searchQuery,
+    selectedCategory,
+    priceRange,
+    minRating,
+    sortBy,
+    categoryIdParam,
+    subcategoryIdParam,
+    sellerIdParam,
+    searchQueryParam,
+  ]);
 
   // Memoized pagination calculations
   const { paginatedProducts, totalPages } = useMemo(() => {

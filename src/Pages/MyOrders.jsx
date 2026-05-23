@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -9,7 +9,7 @@ import Footer from "../Components/Home/Footer";
 import LoaderOverlay from "../Components/LoaderOverlay";
 import { selectUser, selectUserInitializing } from "../Features/Backend/UserSlice";
 import { API_BASE_URL } from '../config';
-import { getAuthToken } from '../utils/auth';
+import { getAuthToken, getAuthHeaders } from '../utils/auth';
 import {
   FaBoxOpen,
   FaClipboardList,
@@ -38,29 +38,32 @@ const statusStyles = {
 
 const MyOrders = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const user = useSelector(selectUser);
   const userInitializing = useSelector(selectUserInitializing);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const token = getAuthToken();
+  const loginType = typeof window !== "undefined" ? localStorage.getItem("loginType") : null;
+  const userId = user?.data?._id || user?._id;
 
-  const authHeaders = useMemo(() => {
-    if (!token) return {};
-    return { auth_token: token };
-  }, [token]);
+  const authHeaders = useMemo(() => getAuthHeaders(), [token]);
 
   const { data: orders = [], isLoading: loading, error: queryError, refetch: fetchOrders } = useQuery({
-    queryKey: ['myOrders', token],
+    queryKey: ['myOrders', token, userId],
     queryFn: async () => {
       const res = await axios.get(`${API_BASE}/checkout`, {
         headers: authHeaders,
         timeout: 20000,
       });
-      return res.data?.data || [];
+      const payload = res.data?.data ?? res.data?.orders ?? [];
+      return Array.isArray(payload) ? payload : [];
     },
-    enabled: !!token,
+    enabled: !!token && loginType === "user",
     staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const handleRefresh = async () => {
@@ -81,10 +84,17 @@ const MyOrders = () => {
 
   useEffect(() => {
     if (userInitializing) return;
-    if (!token) {
+    if (!token || loginType !== "user") {
       navigate("/login");
     }
-  }, [token, userInitializing, navigate]);
+  }, [token, loginType, userInitializing, navigate]);
+
+  useEffect(() => {
+    if (location.state?.orderPlaced && token) {
+      queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+      fetchOrders({ throwOnError: false });
+    }
+  }, [location.state?.orderPlaced, token, queryClient, fetchOrders]);
 
   const canReturnOrder = (order) => {
     const status = (order.status || "").toLowerCase();

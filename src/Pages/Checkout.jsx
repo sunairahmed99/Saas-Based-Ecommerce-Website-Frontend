@@ -10,6 +10,8 @@ import { Elements } from "../utils/stripe-mock.jsx";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { API_BASE_URL } from '../config';
+import { getAuthToken, getAuthHeaders } from '../utils/auth';
+import { useQueryClient } from "@tanstack/react-query";
 import "./Checkout.css";
 
 const API_BASE = `${API_BASE_URL}`;
@@ -17,8 +19,10 @@ const API_BASE = `${API_BASE_URL}`;
 const Checkout = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
 
   const { user } = useSelector((state) => state.users);
+  const userData = user?.data || user;
   const { cartItems, loading: cartLoading } = useSelector((state) => state.cart);
 
   const [addressLoading, setAddressLoading] = useState(false);
@@ -49,19 +53,14 @@ const Checkout = () => {
   const [deletingAddress, setDeletingAddress] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const authHeaders = useMemo(() => {
-    const rawToken =
-      user?.token ||
-      user?.data?.token ||
-      localStorage.getItem("token");
-    if (!rawToken) return {};
-    const token = rawToken.replace(/^Bearer\s+/i, "");
-    return {
-      headers: {
-        auth_token: token,
-      },
-    };
-  }, [user]);
+  const token = getAuthToken();
+  const authHeaders = useMemo(
+    () => ({
+      headers: getAuthHeaders(),
+      timeout: 20000,
+    }),
+    [token]
+  );
 
   // Calculate totals
   const subtotal = (cartItems || []).reduce(
@@ -73,15 +72,15 @@ const Checkout = () => {
 
   // Load cart items
   useEffect(() => {
-    if (user) {
+    if (userData) {
       dispatch(fetchCartItems());
     }
-  }, [user, dispatch]);
+  }, [userData, dispatch]);
 
   // Load addresses
   useEffect(() => {
     const loadAddresses = async () => {
-      if (!user) return;
+      if (!userData) return;
       try {
         setAddressLoading(true);
         const res = await axios.get(`${API_BASE}/address`, authHeaders);
@@ -96,7 +95,7 @@ const Checkout = () => {
       }
     };
     loadAddresses();
-  }, [user, authHeaders]);
+  }, [userData, authHeaders]);
 
   // Handle address creation
   const handleCreateAddress = async () => {
@@ -238,7 +237,8 @@ const Checkout = () => {
       setCouponDiscount(0);
       setCouponApplied(false);
       setOrderSuccess(response.data.order);
-      navigate("/orders");
+      await queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+      navigate("/orders", { state: { orderPlaced: true } });
     } catch (error) {
       console.error("Order placement error:", error);
       setErrorMsg(error.message || "Failed to place order. Please try again.");
@@ -336,7 +336,8 @@ const Checkout = () => {
       setCouponDiscount(0);
       setCouponApplied(false);
       setOrderSuccess(response.data);
-      navigate("/orders");
+      await queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+      navigate("/orders", { state: { orderPlaced: true } });
     } catch (error) {
       console.error("COD order error:", error);
       setErrorMsg(error?.response?.data?.message || error.message || "Failed to place order. Please try again.");
@@ -345,7 +346,7 @@ const Checkout = () => {
     }
   };
 
-  if (!user) {
+  if (!userData || !token) {
     return (
       <>
         <Navbar />

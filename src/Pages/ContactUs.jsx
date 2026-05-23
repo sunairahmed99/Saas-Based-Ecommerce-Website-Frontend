@@ -6,30 +6,21 @@ import { FaEnvelope, FaUser, FaCommentDots, FaRegPaperPlane, FaHandsHelping, FaH
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { useDispatch, useSelector } from "react-redux";
-import { createContact, selectContactSubmitting, selectContactSubmitError, selectContactLastSubmitted } from "../Features/Backend/ContactSlice";
+import { createContact, selectContactSubmitting, selectContactSubmitError } from "../Features/Backend/ContactSlice";
 
 function ContactUs() {
   const dispatch = useDispatch();
   const submitting = useSelector(selectContactSubmitting);
   const submitError = useSelector(selectContactSubmitError);
-  const lastSubmitted = useSelector(selectContactLastSubmitted);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting, isSubmitSuccessful } } = useForm();
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
   const [showToast, setShowToast] = React.useState(false);
   const [toastMsg, setToastMsg] = React.useState("");
-  const [showSuccess, setShowSuccess] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!showSuccess) return;
-    const timer = setTimeout(() => setShowSuccess(false), 3000);
-    return () => clearTimeout(timer);
-  }, [showSuccess]);
 
   const onSubmit = async (data) => {
     const result = await dispatch(createContact(data));
     if (createContact.fulfilled.match(result)) {
       setToastMsg("Your message has been sent!");
       setShowToast(true);
-      setShowSuccess(true);
       setTimeout(() => setShowToast(false), 2500);
       reset();
     } else {
@@ -313,9 +304,6 @@ function ContactUs() {
                   </Button>
                 </motion.div>
                 {submitError && <div style={{color:"#ff9b9b", marginTop:"8px"}}>{submitError}</div>}
-                {showSuccess && !submitError && (
-                  <div style={{color:"#9efbb6", marginTop:"8px"}}>Saved successfully.</div>
-                )}
               </Form>
             </div>
           </motion.div>

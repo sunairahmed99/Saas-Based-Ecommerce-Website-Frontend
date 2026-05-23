@@ -97,14 +97,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
     }
   };
 
-  const productImages = [
-    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200",
-    "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200",
-    "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200",
-    "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=200",
-    "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200",
-    "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=200",
-  ];
+  const placeholderImage = "https://via.placeholder.com/400x400?text=No+Image";
 
   return (
     <>
@@ -147,7 +140,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
                 const discountPrice = product.prodisprice || product.pprice || product.price || 0;
                 const originalPrice = product.pprice || product.pactualprice || product.price || 0;
                 const hasDiscount = discountPrice < originalPrice && originalPrice > 0;
-                const productImage = product.pimage1 || product.image || productImages[idx % productImages.length];
+                const productImage = product.pimage1 || product.image || placeholderImage;
                 const sellerName = product.sellerid?.sname || product.sellerid?.name || product.sellerid || "Unknown Seller";
                 const favorite = isFavorite(productId);
                 const isProcessing = processingIds.has(productId);
@@ -162,7 +155,7 @@ const ProductCarousel = memo(({ title, subtitle, products, bgColor = "rgba(30, 3
                           src={productImage}
                           alt={productName}
                           onError={(e) => {
-                            e.target.src = productImages[idx % productImages.length];
+                            e.target.src = placeholderImage;
                           }}
                         />
                         <div className="pill-stack">
