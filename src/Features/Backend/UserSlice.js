@@ -237,9 +237,10 @@ export const fetchCurrentUser = createAsyncThunk(
         headers: {
           auth_token: token,
         },
+        timeout: 20000,
       });
 
-      return res.data.data;
+      return res.data?.data;
     } catch (err) {
       // If token is invalid, clear it from localStorage
       if (err?.response?.status === 401) {
@@ -351,7 +352,8 @@ const usersSlice = createSlice({
       })
       .addCase(verifyLoginCode.fulfilled, (state, action) => {
         state.verifyLoading = false;
-        state.user = { data: action.payload.data };
+        state.initializing = false;
+        state.user = { data: action.payload?.data };
       })
       .addCase(verifyLoginCode.rejected, (state, action) => {
         state.verifyLoading = false;
@@ -433,7 +435,6 @@ const usersSlice = createSlice({
       })
       .addCase(fetchCurrentUser.rejected, (state) => {
         state.initializing = false;
-        state.user = null;
       })
       .addCase(handleGoogleLogin.pending, (state) => {
         state.loginLoading = true;

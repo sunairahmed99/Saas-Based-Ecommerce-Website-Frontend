@@ -40,7 +40,7 @@ const SellerProtectedRoute = ({ children }) => {
 
   // Show loading while initializing
   if (userInitializing || sellerInitializing) {
-    return <LoaderOverlay />;
+    return <LoaderOverlay show message="Loading seller panel..." />;
   }
 
   // If not seller, don't render children (redirect will happen in useEffect)

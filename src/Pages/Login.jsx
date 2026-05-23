@@ -34,6 +34,7 @@ const Login = () => {
   const inactiveTimerRef = React.useRef();
   const loginTriedRef = React.useRef(false);
   const showSellerOverlay = accountType === "seller" && (loadingSeller || verifyLoadingSeller);
+  const showUserOverlay = accountType === "customer" && (loadingUser || verifyLoadingUser);
 
   const handleInactiveSeller = React.useCallback(() => {
     setShowInactiveMsg(true);
@@ -50,8 +51,9 @@ const Login = () => {
   }, []);
 
   React.useEffect(() => {
-    if (user) {
-      navigate("/");
+    if (user?.data) {
+      const redirectTo = user.data.role === "admin" ? "/admin" : "/";
+      navigate(redirectTo);
       return;
     }
     if (
@@ -105,7 +107,12 @@ const Login = () => {
       });
     } else {
       dispatch(verifyLoginCode(verifyData)).then((result) => {
-        if (result.meta.requestStatus === 'fulfilled') navigate(result.payload.redirectTo || '/');
+        if (result.meta.requestStatus === 'fulfilled') {
+          const redirect =
+            result.payload?.redirectTo ||
+            (result.payload?.data?.role === 'admin' ? '/admin' : '/');
+          navigate(redirect);
+        }
       });
     }
   };
@@ -127,6 +134,7 @@ const Login = () => {
   return (
     <>
       <LoaderOverlay show={showSellerOverlay} message="Seller login in progress..." />
+      <LoaderOverlay show={showUserOverlay} message="Login in progress..." />
       <Navbar/>
       <section className="login-bg">
         <div className="login-box">
@@ -205,7 +213,15 @@ const Login = () => {
               {(verifyErrorUser || verifyErrorSeller) && (
                 <span className="error-msg">{accountType === "customer" ? verifyErrorUser : verifyErrorSeller}</span>
               )}
-              <button className="btn-primary" type="submit">Verify & Login</button>
+              <button
+                className="btn-primary"
+                type="submit"
+                disabled={accountType === "seller" ? verifyLoadingSeller : verifyLoadingUser}
+              >
+                {accountType === "seller"
+                  ? (verifyLoadingSeller ? <span className="spinner" /> : "Verify & Login")
+                  : (verifyLoadingUser ? <span className="spinner" /> : "Verify & Login")}
+              </button>
               <button className="btn-back" type="button" onClick={() => { setVerificationStep(false); setLoginEmail(""); }}>
                 Back to Login
               </button>

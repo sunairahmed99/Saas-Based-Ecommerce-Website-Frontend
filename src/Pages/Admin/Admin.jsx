@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { fetchCurrentUser } from "../../Features/Backend/UserSlice";
+import React, { useState } from "react";
 import Sidebar from "../../Components/AdminComponent/Sidebar";
 import Users from "../../Components/AdminComponent/Users";
 import Product from "../../Components/AdminComponent/Products";
@@ -23,16 +21,7 @@ import AdminChat from "../AdminChat";
 import "./Admin.css";
 
 function Admin() {
-  const dispatch = useDispatch();
   const [activePage, setActivePage] = useState("dashboard");
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const loginType = localStorage.getItem("loginType");
-    if (token && loginType === "user") {
-      dispatch(fetchCurrentUser());
-    }
-  }, [dispatch]);
 
   const renderPage = () => {
     switch (activePage) {

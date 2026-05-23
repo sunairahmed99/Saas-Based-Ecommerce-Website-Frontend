@@ -9,6 +9,7 @@ import Footer from "../Components/Home/Footer";
 import LoaderOverlay from "../Components/LoaderOverlay";
 import { selectUser, selectUserInitializing } from "../Features/Backend/UserSlice";
 import { API_BASE_URL } from '../config';
+import { getAuthToken } from '../utils/auth';
 import {
   FaBoxOpen,
   FaClipboardList,
@@ -40,40 +41,50 @@ const MyOrders = () => {
   const queryClient = useQueryClient();
   const user = useSelector(selectUser);
   const userInitializing = useSelector(selectUserInitializing);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const token = getAuthToken();
 
   const authHeaders = useMemo(() => {
-    const rawToken =
-      user?.token ||
-      user?.data?.token ||
-      localStorage.getItem("token");
-    if (!rawToken) return {};
-    const token = rawToken.replace(/^Bearer\s+/i, "");
+    if (!token) return {};
     return { auth_token: token };
-  }, [user]);
+  }, [token]);
 
   const { data: orders = [], isLoading: loading, error: queryError, refetch: fetchOrders } = useQuery({
-    queryKey: ['myOrders', user?.token || localStorage.getItem("token")],
+    queryKey: ['myOrders', token],
     queryFn: async () => {
       const res = await axios.get(`${API_BASE}/checkout`, {
         headers: authHeaders,
+        timeout: 20000,
       });
       return res.data?.data || [];
     },
-    enabled: !!localStorage.getItem("token"),
-    staleTime: 5 * 60 * 1000,
+    enabled: !!token,
+    staleTime: 0,
   });
+
+  const handleRefresh = async () => {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['myOrders'] });
+      await fetchOrders({ throwOnError: false });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const error = queryError ? (queryError?.response?.data?.message || "Unable to load your orders right now.") : null;
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (userInitializing) {
-      return;
-    }
-    if (!token || !user) {
+    if (userInitializing) return;
+    if (!token) {
       navigate("/login");
     }
-  }, [user, userInitializing, navigate]);
+  }, [token, userInitializing, navigate]);
 
   const canReturnOrder = (order) => {
     const status = (order.status || "").toLowerCase();
@@ -307,8 +318,13 @@ const MyOrders = () => {
                 {orders.length} {orders.length === 1 ? "order" : "orders"}
               </span>
             </div>
-            <button className="refresh-btn" onClick={() => { queryClient.invalidateQueries({ queryKey: ['myOrders'] }); fetchOrders(); }} disabled={loading}>
-              Refresh
+            <button
+              type="button"
+              className="refresh-btn"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
 

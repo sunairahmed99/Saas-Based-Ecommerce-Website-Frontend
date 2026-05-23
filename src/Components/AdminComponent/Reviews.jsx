@@ -12,22 +12,24 @@ const Reviews = () => {
     queryKey: ['website-reviews'],
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/review/getall`, {
-        headers: { auth_token: token }
+        headers: { auth_token: token },
       });
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const { data: productReviews = [], isLoading: productLoading, error: productError } = useQuery({
     queryKey: ['product-reviews'],
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/review/product/getall`, {
-        headers: { auth_token: token }
+        headers: { auth_token: token },
       });
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const approveWebsiteMutation = useMutation({
