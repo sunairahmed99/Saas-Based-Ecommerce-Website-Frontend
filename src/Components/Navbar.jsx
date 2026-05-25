@@ -77,7 +77,7 @@ const Navbar = () => {
     const loginType = localStorage.getItem("loginType");
 
     // Only fetch user data if we have a token
-    if (token && loginType === "user") {
+    if (token && (loginType === "user" || loginType === "google")) {
       if (!user) {
         dispatch(fetchCurrentUser());
       }
@@ -88,7 +88,7 @@ const Navbar = () => {
     }
 
     // Favorites: customers only (once per session mount — avoid race overwrites)
-    if (token && loginType === "user") {
+    if (token && (loginType === "user" || loginType === "google")) {
       dispatch(fetchFavorites());
     }
     if (token) {

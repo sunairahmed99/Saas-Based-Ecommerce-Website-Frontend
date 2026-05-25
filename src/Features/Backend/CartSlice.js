@@ -41,6 +41,24 @@ const recalcTotals = (state) => {
   state.cartCount = state.cartItems.length;
 };
 
+const getProductPrice = (product) => {
+  if (!product) return 0;
+  if (product.prodisprice > 0) return product.prodisprice;
+  if (product.pactualprice > 0) return product.pactualprice;
+  return product.pprice || 0;
+};
+
+const removeOptimisticByVariant = (state, productId, color, size) => {
+  state.cartItems = state.cartItems.filter((item) => {
+    if (!item._optimistic) return true;
+    return !(
+      getCartProductId(item) === String(productId) &&
+      (item.color ?? null) === (color ?? null) &&
+      (item.size ?? null) === (size ?? null)
+    );
+  });
+};
+
 export const addToCart = createAsyncThunk(
   "cart/addToCart",
   async ({ productId, quantity = 1, color = null, size = null }, { rejectWithValue }) => {
@@ -235,6 +253,25 @@ const CartSlice = createSlice({
     resetAddCartLoading: (state) => {
       state.addLoading = false;
     },
+    optimisticAddToCart: (state, action) => {
+      const { product, quantity = 1, color = null, size = null, tempId } = action.payload;
+      if (!product?._id) return;
+
+      const itemPrice = getProductPrice(product);
+      const qty = quantity || 1;
+
+      state.cartItems.push({
+        _id: tempId,
+        productId: product,
+        quantity: qty,
+        color: color ?? null,
+        size: size ?? null,
+        price: itemPrice,
+        totalPrice: itemPrice * qty,
+        _optimistic: true,
+      });
+      recalcTotals(state);
+    },
   },
 
   extraReducers: (builder) => {
@@ -263,6 +300,11 @@ const CartSlice = createSlice({
         const payload = action.payload;
         if (!payload) return;
 
+        const { productId, color, size } = action.meta.arg || {};
+        if (productId) {
+          removeOptimisticByVariant(state, productId, color, size);
+        }
+
         const idx = state.cartItems.findIndex((item) =>
           cartItemsMatch(item, payload)
         );
@@ -276,6 +318,11 @@ const CartSlice = createSlice({
       .addCase(addToCart.rejected, (state, action) => {
         state.addLoading = false;
         state.addError = action.payload;
+        const { productId, color, size } = action.meta.arg || {};
+        if (productId) {
+          removeOptimisticByVariant(state, productId, color, size);
+          recalcTotals(state);
+        }
       })
 
       .addCase(updateCartItem.pending, (state) => {
@@ -363,7 +410,7 @@ const CartSlice = createSlice({
   },
 });
 
-export const { clearCartError, resetAddCartLoading } = CartSlice.actions;
+export const { clearCartError, resetAddCartLoading, optimisticAddToCart } = CartSlice.actions;
 
 export default CartSlice.reducer;
 

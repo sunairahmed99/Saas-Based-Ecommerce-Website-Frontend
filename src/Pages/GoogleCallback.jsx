@@ -1,32 +1,50 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import LoaderOverlay from '../Components/LoaderOverlay';
+import { fetchCurrentUser } from '../Features/Backend/UserSlice';
+import { fetchCartCount } from '../Features/Backend/CartSlice';
+import { fetchFavorites } from '../Features/Backend/FavoriteSlice';
 
 const GoogleCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    // Parse URL parameters
-    const params = new URLSearchParams(location.search);
-    const token = params.get('token');
-    const loginType = params.get('loginType');
+    const completeGoogleLogin = async () => {
+      const params = new URLSearchParams(location.search);
+      const token = params.get('token');
+      const loginType = params.get('loginType') || 'google';
+      const redirectTo = params.get('redirectTo') || '/';
 
-    if (token && loginType) {
-      // Save to localStorage
+      if (!token) {
+        navigate('/login?error=google_auth_incomplete', { replace: true });
+        return;
+      }
+
       localStorage.setItem('token', token);
-      localStorage.setItem('loginType', 'user'); // Standardize as 'user' for consistency
-      
-      // Redirect to home page
-      window.location.href = '/';
-    } else {
-      // If no token, redirect to login with error
-      navigate('/login?error=google_auth_incomplete');
-    }
-  }, [navigate, location]);
+      localStorage.setItem('loginType', loginType);
+
+      try {
+        await dispatch(fetchCurrentUser()).unwrap();
+        dispatch(fetchCartCount());
+        if (loginType === 'google' || loginType === 'user') {
+          dispatch(fetchFavorites());
+        }
+        navigate(redirectTo, { replace: true });
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('loginType');
+        navigate('/login?error=google_auth_failed', { replace: true });
+      }
+    };
+
+    completeGoogleLogin();
+  }, [dispatch, location.search, navigate]);
 
   return (
-    <LoaderOverlay show={true} message="Authenticating with Google..." />
+    <LoaderOverlay show={true} message="Signing you in with Google..." />
   );
 };
 

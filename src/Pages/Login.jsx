@@ -124,7 +124,8 @@ const Login = () => {
     }
     try {
       setGoogleLoginLoading(true);
-      window.location.href = `${API_BASE_URL}/user/auth/google`;
+      const frontendUrl = encodeURIComponent(window.location.origin);
+      window.location.href = `${API_BASE_URL}/user/auth/google?frontend_url=${frontendUrl}`;
     } catch (error) {
       console.error('Google login error:', error);
       setGoogleLoginLoading(false);

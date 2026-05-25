@@ -37,7 +37,7 @@ const Favorites = lazyWithRetry(() => import("./Pages/Favorites"));
 const ContactUs = lazyWithRetry(() => import("./Pages/ContactUs"));
 const Reviews = lazyWithRetry(() => import("./Pages/Reviews"));
 const Wallet = lazyWithRetry(() => import("./Pages/Wallet"));
-const GoogleCallback = lazyWithRetry(() => import("./Pages/GoogleCallback"));
+import GoogleCallback from "./Pages/GoogleCallback";
 const Admin = lazyWithRetry(() => import("./Pages/Admin/Admin"));
 const AdminChat = lazyWithRetry(() => import("./Pages/AdminChat"));
 const SellerAdmin = lazyWithRetry(() => import("./Pages/SellerAdmin"));
@@ -54,14 +54,15 @@ import SplashScreen from "./Components/SplashScreen";
 import AdminProtectedRoute from "./Components/AdminComponent/AdminProtectedRoute";
 
 const AppContent = () => {
-  const [isSplashComplete, setIsSplashComplete] = useState(false);
   const location = useLocation();
+  const isGoogleAuthCallback = location.pathname === "/auth/google/callback";
+  const [isSplashComplete, setIsSplashComplete] = useState(isGoogleAuthCallback);
   const hideChatWidgets = 
     location.pathname.startsWith("/admin") || 
     location.pathname.startsWith("/seller-admin") || 
     location.pathname.startsWith("/seller-chat");
 
-  if (!isSplashComplete) {
+  if (!isSplashComplete && !isGoogleAuthCallback) {
     return <SplashScreen onComplete={() => setIsSplashComplete(true)} />;
   }
 

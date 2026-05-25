@@ -107,7 +107,7 @@ const Profile = () => {
       return;
     }
     // If token exists and loginType is user but userData not yet loaded, try fetching and show loader instead of redirecting
-    if (!userData && token && loginType === "user") {
+    if (!userData && token && (loginType === "user" || loginType === "google")) {
       dispatch(fetchCurrentUser());
       return;
     }
@@ -123,7 +123,7 @@ const Profile = () => {
   }, [userData, navigate, setValue, initializing, dispatch, token, loginType]);
 
   // Show loader while initializing or while we are refetching user due to token + loginType mismatch
-  if (initializing || (!userData && token && loginType === "user")) {
+  if (initializing || (!userData && token && (loginType === "user" || loginType === "google"))) {
     return <LoaderOverlay show={true} message="Loading..." />;
   }
   if (!userData || userData.verifiedstatus !== true || userData.active === false) {

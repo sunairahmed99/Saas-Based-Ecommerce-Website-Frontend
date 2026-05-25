@@ -60,7 +60,7 @@ const MyOrders = () => {
       const payload = res.data?.data ?? res.data?.orders ?? [];
       return Array.isArray(payload) ? payload : [];
     },
-    enabled: !!token && loginType === "user",
+    enabled: !!token && (loginType === "user" || loginType === "google"),
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -84,7 +84,7 @@ const MyOrders = () => {
 
   useEffect(() => {
     if (userInitializing) return;
-    if (!token || loginType !== "user") {
+    if (!token || (loginType !== "user" && loginType !== "google")) {
       navigate("/login");
     }
   }, [token, loginType, userInitializing, navigate]);
