@@ -8,6 +8,7 @@ import { addToFavorites, deleteFavorite, selectFavorites, selectAddFavoriteLoadi
 import { selectUser } from "../../Features/Backend/UserSlice";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
 import OptimizedImage from "../OptimizedImage";
+import { resolveProductImage } from "../../constants/images";
 
 const FlashDeals = memo(() => {
   const dispatch = useDispatch();
@@ -128,7 +129,7 @@ const FlashDeals = memo(() => {
                 <div key={fd._id} className="product-card-wrapper">
                   <Link to={`/product/${productId}`} className="product-card flash" style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="product-image">
-                      <OptimizedImage src={fd.productId?.pimage1 || fd.productId?.pimage || "https://via.placeholder.com/180"} alt={fd.productId?.pname || "Product"} />
+                      <OptimizedImage src={resolveProductImage(fd.productId?.pimage1 || fd.productId?.pimage)} alt={fd.productId?.pname || "Product"} />
                       <button
                         className={`favorite-btn ${favorite ? "active" : ""} ${isProcessing ? "processing" : ""}`}
                         onClick={(e) => handleFavoriteClick(e, productId)}

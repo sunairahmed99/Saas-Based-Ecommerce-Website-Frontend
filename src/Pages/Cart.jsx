@@ -28,6 +28,7 @@ import {
   selectTotalItems,
   selectTotalCartValue,
 } from "../Features/Backend/CartSlice";
+import { resolveProductImage, handleImageError } from "../constants/images";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -52,7 +53,7 @@ const Cart = () => {
       navigate("/login");
       return;
     }
-    dispatch(fetchCartItems({ force: true }));
+    dispatch(fetchCartItems());
   }, [dispatch, navigate]);
 
   // Auto-hide toast
@@ -88,8 +89,6 @@ const Cart = () => {
         icon: <FaCheckCircle />,
       });
     } catch (error) {
-      // Refetch to get correct state
-      dispatch(fetchCartItems());
       setToast({
         type: "error",
         message: error || "Failed to update quantity",
@@ -816,7 +815,9 @@ const Cart = () => {
                           const product = item.productId || {};
                           const productId = product._id || product;
                           const productName = product.pname || product.name || "Unknown Product";
-                          const productImage = product.pimage1 || product.image || "https://via.placeholder.com/150?text=No+Image";
+                          const productImage = resolveProductImage(
+                            product.pimage1 || product.image
+                          );
                           const productDescription = product.pdescription || product.description || "";
                           const categoryName = product.catid?.name || product.catid?.cname || product.catid || "N/A";
                           const subcategoryName = product.subcatid?.name || product.subcatid?.scname || product.subcatid || "N/A";
@@ -838,9 +839,7 @@ const Cart = () => {
                                 src={productImage}
                                 alt={productName}
                                 className="cart-item-image"
-                                onError={(e) => {
-                                  e.target.src = "https://via.placeholder.com/150?text=No+Image";
-                                }}
+                                onError={handleImageError}
                               />
                               <div className="cart-item-info">
                                 <h3 className="cart-item-name">

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { selectUser } from '../Features/Backend/UserSlice';;
 import { API_BASE_URL } from '../config';
 import { toast } from './Toast';
+import { handleImageError } from '../constants/images';
 import './ChatWidget.css';
 
 const ChatWidget = () => {
@@ -300,10 +301,7 @@ const ChatWidget = () => {
                                                 alt={msg.message}
                                                 className="chat-image"
                                                 onClick={() => window.open(msg.image.url || msg.image.imageUrl, '_blank')}
-                                                onError={(e) => {
-                                                    console.error('Image failed to load:', msg.image.url || msg.image.imageUrl);
-                                                    e.target.src = 'https://via.placeholder.com/200x150?text=Image+Load+Error';
-                                                }}
+                                                onError={handleImageError}
                                                 onLoad={() => {}}
                                             />
                                             {msg.message && <div className="image-caption">{msg.message}</div>}

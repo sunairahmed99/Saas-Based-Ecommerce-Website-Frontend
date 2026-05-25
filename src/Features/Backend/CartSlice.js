@@ -60,6 +60,34 @@ const removeOptimisticByVariant = (state, productId, color, size) => {
   });
 };
 
+const isTempCartId = (id) => String(id || "").startsWith("opt-");
+
+const mergeServerWithLocalCart = (serverItems, localItems) => {
+  const byId = new Map();
+  const optimistic = [];
+
+  (serverItems || []).forEach((item) => {
+    if (item?._id) byId.set(String(item._id), item);
+  });
+
+  (localItems || []).forEach((item) => {
+    if (item._optimistic) {
+      optimistic.push(item);
+      return;
+    }
+    const id = String(item._id || "");
+    if (!id || isTempCartId(id)) return;
+    if (!byId.has(id)) byId.set(id, item);
+  });
+
+  const merged = Array.from(byId.values());
+  optimistic.forEach((opt) => {
+    if (!merged.some((s) => cartItemsMatch(s, opt))) merged.push(opt);
+  });
+
+  return merged;
+};
+
 export const addToCart = createAsyncThunk(
   "cart/addToCart",
   async ({ productId, quantity = 1, color = null, size = null }, { rejectWithValue }) => {
@@ -312,32 +340,17 @@ const CartSlice = createSlice({
         state.loading = false;
         state.refreshing = false;
         const serverItems = (action.payload || []).filter((item) => !item?._optimistic);
-        const optimisticItems = state.cartItems.filter((item) => item._optimistic);
-        const confirmedLocal = state.cartItems.filter((item) => !item._optimistic);
+        const confirmedLocal = state.cartItems.filter(
+          (item) => !item._optimistic && !isTempCartId(item._id)
+        );
 
-        if (
-          serverItems.length === 0 &&
-          confirmedLocal.length > 0 &&
-          state.lastFetchedAt &&
-          Date.now() - state.lastFetchedAt < 10000
-        ) {
+        if (serverItems.length === 0 && confirmedLocal.length > 0) {
           state.lastFetchedAt = Date.now();
           recalcTotals(state);
           return;
         }
 
-        if (optimisticItems.length > 0) {
-          const merged = [...serverItems];
-          optimisticItems.forEach((opt) => {
-            if (!merged.some((s) => cartItemsMatch(s, opt))) {
-              merged.push(opt);
-            }
-          });
-          state.cartItems = merged;
-        } else {
-          state.cartItems = serverItems;
-        }
-
+        state.cartItems = mergeServerWithLocalCart(serverItems, state.cartItems);
         state.lastFetchedAt = Date.now();
         recalcTotals(state);
       })
@@ -362,13 +375,30 @@ const CartSlice = createSlice({
           removeOptimisticByVariant(state, productId, color, size);
         }
 
-        const idx = state.cartItems.findIndex((item) =>
-          cartItemsMatch(item, payload)
+        const payloadId = String(payload._id);
+        const byIdIdx = state.cartItems.findIndex(
+          (item) => String(item._id) === payloadId
         );
-        if (idx !== -1) {
-          state.cartItems[idx] = payload;
+
+        if (byIdIdx !== -1) {
+          state.cartItems[byIdIdx] = {
+            ...payload,
+            productId:
+              payload.productId || state.cartItems[byIdIdx].productId,
+          };
         } else {
-          state.cartItems.push(payload);
+          const variantIdx = state.cartItems.findIndex(
+            (item) => !item._optimistic && cartItemsMatch(item, payload)
+          );
+          if (variantIdx !== -1) {
+            state.cartItems[variantIdx] = {
+              ...payload,
+              productId:
+                payload.productId || state.cartItems[variantIdx].productId,
+            };
+          } else {
+            state.cartItems.push(payload);
+          }
         }
         state.lastFetchedAt = Date.now();
         recalcTotals(state);
@@ -497,10 +527,14 @@ export const selectDeleteCartLoading = (state) => state.cart.deleteLoading;
 export const selectDeleteCartError = (state) => state.cart.deleteError;
 export const selectClearCartLoading = (state) => state.cart.clearLoading;
 export const selectClearCartError = (state) => state.cart.clearError;
-export const selectCartCount = (state) => {
+/** Badge: number of distinct line items in cart */
+export const selectCartCount = (state) => state.cart.cartItems.length;
+
+/** Total units (sum of quantities) */
+export const selectCartBadgeCount = (state) => {
   const items = state.cart.cartItems;
-  if (items.length > 0) return items.length;
-  return state.cart.cartCount;
+  if (items.length === 0) return 0;
+  return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
 };
 export const selectTotalItems = (state) => {
   const items = state.cart.cartItems;

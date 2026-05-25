@@ -1,9 +1,12 @@
+import { NO_IMAGE_PLACEHOLDER } from "../constants/images";
+
 /**
  * Utility to map slow loremflickr.com redirecting URLs to high-performance
  * direct CDN links (such as Unsplash imgix CDN) to speed up image loading.
  */
 export const getOptimizedImageUrl = (src, alt) => {
-  if (!src || typeof src !== 'string') return src;
+  if (!src || typeof src !== "string") return NO_IMAGE_PLACEHOLDER;
+  if (src.includes("via.placeholder.com")) return NO_IMAGE_PLACEHOLDER;
 
   // High-quality, direct Unsplash CDN URLs (no redirect hops)
   const pools = {

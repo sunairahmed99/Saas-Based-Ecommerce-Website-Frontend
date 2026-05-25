@@ -8,7 +8,7 @@ import { API_BASE_URL } from "../config";
 import { selectUser, logout, fetchCurrentUser } from "../Features/Backend/UserSlice";
 import { selectSeller, logoutSeller, fetchCurrentSeller } from "../Features/Backend/SellerSlice";
 import { fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
-import { fetchCartItems, selectCartCount } from "../Features/Backend/CartSlice";
+import { fetchCartItems, selectCartBadgeCount } from "../Features/Backend/CartSlice";
 import { fetchcategories, selectcategories } from "../Features/Backend/CategorySlice";
 import { fetchsubcategories, selectsubcategories } from "../Features/Backend/SubCategorySlice";
 import "./Navbar.css";
@@ -36,7 +36,7 @@ const Navbar = () => {
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
   const favorites = useSelector(selectFavorites) || [];
-  const cartCount = useSelector(selectCartCount);
+  const cartCount = useSelector(selectCartBadgeCount);
   const categories = useSelector(selectcategories) || [];
   const subcategories = useSelector(selectsubcategories) || [];
   const dispatch = useDispatch();
@@ -266,7 +266,10 @@ const Navbar = () => {
         </div>
         <div className="navbar-right">
         {/* Cart icon - ONLY FOR USER */}
-        {user && (
+        {(user ||
+          (localStorage.getItem("token") &&
+            (localStorage.getItem("loginType") === "user" ||
+              localStorage.getItem("loginType") === "google"))) && (
           <div  
             className="favorite-icon-wrapper"
             onClick={() => navigate("/cart")}

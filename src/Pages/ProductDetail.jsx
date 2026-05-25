@@ -17,6 +17,7 @@ import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { trackViewedProduct } from "../utils/userBehavior";
 import { API_BASE_URL } from '../config';
 import OptimizedImage from "../Components/OptimizedImage";
+import { resolveProductImage } from "../constants/images";
 
 function ProductDetail() {
   const { id } = useParams();
@@ -261,7 +262,7 @@ function ProductDetail() {
     ? [product.pimage1, product.pimage2, product.pimage3]
         .filter(img => img && typeof img === 'string' && img.trim() !== '' && img !== 'null' && img !== 'undefined')
     : [];
-  const mainImage = images[selectedImage] || images[0] || "https://via.placeholder.com/600?text=No+Image";
+  const mainImage = resolveProductImage(images[selectedImage] || images[0]);
   const sellerName = product?.sellerid?.sname || product?.sellerid?.name || product?.sellerid || "Unknown Seller";
   const categoryName = product?.catid?.name || product?.catid?.cname || product?.catid || "N/A";
   const subcategoryName = product?.subcatid?.name || product?.subcatid?.scname || product?.subcatid || "N/A";
@@ -1835,7 +1836,7 @@ function ProductDetail() {
                     transition={{ duration: 0.3 }}
                   >
                     <Link to={`/product/${rel._id}`} className="related-card">
-                      <OptimizedImage src={rel.pimage1 || "https://via.placeholder.com/220?text=No+Image"} alt={rel.pname} className="related-image" />
+                      <OptimizedImage src={resolveProductImage(rel.pimage1)} alt={rel.pname} className="related-image" />
                       <div className="related-info">
                         <div className="related-name">{rel.pname}</div>
                         <div className="related-seller">by {rel.sellerid?.sname || rel.sellerid?.name || rel.sellerid || "Unknown Seller"}</div>
