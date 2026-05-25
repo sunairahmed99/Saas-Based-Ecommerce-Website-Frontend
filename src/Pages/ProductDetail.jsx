@@ -9,7 +9,7 @@ import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLay
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
-import { addToCart, optimisticAddToCart, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
+import { addToCart, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { addToFavorites, deleteFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
 import { fetchUserOrderedProducts, createProductReview, selectUserOrderedProducts, selectCreatingProductReview, selectCreateProductReviewError } from "../Features/Backend/ReviewSlice";
@@ -30,8 +30,6 @@ function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [toast, setToast] = useState(null);
-  const cartAddLock = useRef(false);
-
   const user = useSelector(selectUser);
   const cartItems = useSelector(selectCartItems) || [];
 
@@ -327,58 +325,15 @@ function ProductDetail() {
       );
     });
 
-    if (existingItem || cartAddLock.current) {
-      setToast({
-        type: "error",
-        message: "This product with selected color and size is already in your cart",
-        icon: <FaExclamationCircle />,
-      });
-      return;
-    }
+    dispatch(addToCart({ product, quantity: 1, color, size }));
 
-    cartAddLock.current = true;
-    const tempId = `opt-${product._id}-${Date.now()}`;
-
-    dispatch(
-      optimisticAddToCart({
-        product,
-        quantity: 1,
-        color,
-        size,
-        tempId,
-      })
-    );
-
-    dispatch(
-      addToCart({
-        productId: product._id,
-        quantity: 1,
-        color,
-        size,
-      })
-    )
-      .unwrap()
-      .then(() => {
-        setToast({
-          type: "success",
-          message: "Product added to cart successfully!",
-          icon: <FaCheckCircle />,
-        });
-      })
-      .catch((error) => {
-        const msg = typeof error === "string" ? error : "Failed to add to cart";
-        const isTransient = /timeout|network/i.test(msg);
-        setToast({
-          type: "error",
-          message: isTransient
-            ? "Could not confirm add to cart. Check your connection and open Cart to verify."
-            : msg,
-          icon: <FaExclamationCircle />,
-        });
-      })
-      .finally(() => {
-        cartAddLock.current = false;
-      });
+    setToast({
+      type: "success",
+      message: existingItem
+        ? "Quantity updated in cart"
+        : "Product added to cart successfully!",
+      icon: <FaCheckCircle />,
+    });
   };
 
   const handleSubmitReview = async () => {

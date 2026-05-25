@@ -1,6 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { clearCart, fetchCartItems } from "../Features/Backend/CartSlice";
+import {
+  clearCart,
+  selectCartItems,
+  selectTotalCartValue,
+  getCartProductId,
+} from "../Features/Backend/CartSlice";
+
+const getProductPrice = (product) => {
+  if (!product) return 0;
+  if (product.prodisprice > 0) return product.prodisprice;
+  if (product.pactualprice > 0) return product.pactualprice;
+  return product.pprice || 0;
+};
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { FaWallet, FaCreditCard, FaExclamationCircle } from "react-icons/fa";
@@ -23,7 +35,7 @@ const Checkout = () => {
 
   const { user } = useSelector((state) => state.users);
   const userData = user?.data || user;
-  const { cartItems, loading: cartLoading } = useSelector((state) => state.cart);
+  const cartItems = useSelector(selectCartItems) || [];
 
   const [addressLoading, setAddressLoading] = useState(false);
   const [orderPlacing, setOrderPlacing] = useState(false);
@@ -63,19 +75,32 @@ const Checkout = () => {
   );
 
   // Calculate totals
-  const subtotal = (cartItems || []).reduce(
-    (sum, item) => sum + (item.productId?.pprice || 0) * (item.quantity || 0),
+  const subtotal = useSelector(selectTotalCartValue) || (cartItems || []).reduce(
+    (sum, item) => sum + (item.totalPrice || (item.price || 0) * (item.quantity || 0)),
     0
   );
   const totalPayable = Math.max(subtotal - couponDiscount, 0);
 
-
-  // Load cart items
-  useEffect(() => {
-    if (userData) {
-      dispatch(fetchCartItems());
-    }
-  }, [userData, dispatch]);
+  const buildCheckoutItems = () =>
+    cartItems.map((item) => {
+      const product =
+        typeof item.productId === "object" ? item.productId : {};
+      const productId = getCartProductId(item);
+      const unitPrice = item.price ?? getProductPrice(product);
+      return {
+        productId,
+        name: product.pname || "Product",
+        quantity: item.quantity,
+        price: unitPrice,
+        total: item.totalPrice ?? unitPrice * (item.quantity || 1),
+        color: item.color || null,
+        size: item.size || null,
+        sellerId:
+          product.sellerid?._id ||
+          product.sellerid ||
+          product.sellerId,
+      };
+    });
 
   // Load addresses
   useEffect(() => {
@@ -216,16 +241,7 @@ const Checkout = () => {
           status: 'paid'
         },
         paymentIntentId: paymentIntent.id,
-        items: cartItems.map(item => ({
-          productId: item.productId._id,
-          name: item.productId.pname || 'Product',
-          quantity: item.quantity,
-          price: item.productId.pprice,
-          total: (item.productId.pprice || 0) * (item.quantity || 0),
-          color: item.color || null,
-          size: item.size || null,
-          sellerId: item.productId.sellerid || item.productId.sellerId,
-        })),
+        items: buildCheckoutItems(),
       };
 
       // Process the order with card payment
@@ -314,16 +330,7 @@ const Checkout = () => {
           discountType: 'fixed',
           discountValue: couponDiscount
         } : null,
-        items: cartItems.map(item => ({
-          productId: item.productId._id,
-          name: item.productId.pname || 'Product',
-          quantity: item.quantity,
-          price: item.productId.pprice,
-          total: (item.productId.pprice || 0) * (item.quantity || 0),
-          color: item.color || null,
-          size: item.size || null,
-          sellerId: item.productId.sellerid || item.productId.sellerId,
-        })),
+        items: buildCheckoutItems(),
       };
 
 

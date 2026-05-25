@@ -14,17 +14,10 @@ import {
   FaExclamationCircle,
 } from "react-icons/fa";
 import {
-  fetchCartItems,
   updateCartItem,
-  deleteCartItem,
+  removeFromCart,
   clearCart,
   selectCartItems,
-  selectCartLoading,
-  selectCartRefreshing,
-  selectCartError,
-  selectUpdateCartLoading,
-  selectDeleteCartLoading,
-  selectClearCartLoading,
   selectTotalItems,
   selectTotalCartValue,
 } from "../Features/Backend/CartSlice";
@@ -34,27 +27,18 @@ const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const cartItems = useSelector(selectCartItems) || [];
-  const loading = useSelector(selectCartLoading);
-  const error = useSelector(selectCartError);
-  const updateLoading = useSelector(selectUpdateCartLoading);
-  const deleteLoading = useSelector(selectDeleteCartLoading);
-  const clearLoading = useSelector(selectClearCartLoading);
   const totalItems = useSelector(selectTotalItems);
   const totalCartValue = useSelector(selectTotalCartValue);
-  const refreshing = useSelector(selectCartRefreshing);
 
   const [toast, setToast] = useState(null);
-  const [processingIds, setProcessingIds] = useState(new Set());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const loginType = localStorage.getItem("loginType");
     if (!token || loginType === "seller") {
       navigate("/login");
-      return;
     }
-    dispatch(fetchCartItems());
-  }, [dispatch, navigate]);
+  }, [navigate]);
 
   // Auto-hide toast
   useEffect(() => {
@@ -64,113 +48,41 @@ const Cart = () => {
     }
   }, [toast]);
 
-  const handleQuantityChange = async (cartItemId, currentQuantity, change) => {
-    if (processingIds.has(cartItemId)) return;
-
+  const handleQuantityChange = (cartItemId, currentQuantity, change) => {
     const newQuantity = currentQuantity + change;
     if (newQuantity < 1) {
-      setToast({
-        type: "error",
-        message: "Quantity must be at least 1",
-        icon: <FaExclamationCircle />,
-      });
-      return;
-    }
-
-    setProcessingIds((prev) => new Set(prev).add(cartItemId));
-
-    try {
-      // Make the API call - no optimistic update to prevent UI flicker
-      await dispatch(updateCartItem({ cartItemId, quantity: newQuantity })).unwrap();
-
-      setToast({
-        type: "success",
-        message: "Quantity updated",
-        icon: <FaCheckCircle />,
-      });
-    } catch (error) {
-      setToast({
-        type: "error",
-        message: error || "Failed to update quantity",
-        icon: <FaExclamationCircle />,
-      });
-    } finally {
-      setProcessingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(cartItemId);
-        return newSet;
-      });
-    }
-  };
-
-  const handleRemoveItem = async (cartItemId) => {
-    if (processingIds.has(cartItemId)) return;
-
-    setProcessingIds((prev) => new Set(prev).add(cartItemId));
-
-    try {
-      await dispatch(deleteCartItem(cartItemId)).unwrap();
+      dispatch(removeFromCart(cartItemId));
       setToast({
         type: "success",
         message: "Item removed from cart",
         icon: <FaCheckCircle />,
       });
-    } catch (error) {
-      setToast({
-        type: "error",
-        message: error || "Failed to remove item",
-        icon: <FaExclamationCircle />,
-      });
-    } finally {
-      setProcessingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(cartItemId);
-        return newSet;
-      });
-    }
-  };
-
-  const handleClearCart = async () => {
-    if (!window.confirm("Are you sure you want to clear all items from your cart?")) {
       return;
     }
 
-    try {
-      await dispatch(clearCart()).unwrap();
-      setToast({
-        type: "success",
-        message: "Cart cleared successfully",
-        icon: <FaCheckCircle />,
-      });
-    } catch (error) {
-      setToast({
-        type: "error",
-        message: error || "Failed to clear cart",
-        icon: <FaExclamationCircle />,
-      });
-    }
+    dispatch(updateCartItem({ cartItemId, quantity: newQuantity }));
   };
 
-  const showFullPageLoader = loading && cartItems.length === 0;
+  const handleRemoveItem = (cartItemId) => {
+    dispatch(removeFromCart(cartItemId));
+    setToast({
+      type: "success",
+      message: "Item removed from cart",
+      icon: <FaCheckCircle />,
+    });
+  };
 
-  if (showFullPageLoader) {
-    return (
-      <>
-        <Navbar />
-        <div className="cart-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <motion.div 
-            animate={{ opacity: [0.5, 1, 0.5] }} 
-            transition={{ duration: 1.5, repeat: Infinity }}
-            style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", textAlign: "center" }}
-          >
-            <FaShoppingCart size={28} style={{ color: "#00eaff" }} />
-            <p style={{ color: "#fff", fontSize: "1.2rem", margin: 0 }}>Loading cart...</p>
-          </motion.div>
-        </div>
-        <Footer />
-      </>
-    );
-  }
+  const handleClearCart = () => {
+    if (!window.confirm("Are you sure you want to clear all items from your cart?")) {
+      return;
+    }
+    dispatch(clearCart());
+    setToast({
+      type: "success",
+      message: "Cart cleared successfully",
+      icon: <FaCheckCircle />,
+    });
+  };
 
   return (
     <>
@@ -758,17 +670,12 @@ const Cart = () => {
           <div className="cart-header">
             <h1 className="cart-title">
               <FaShoppingCart /> My Cart ({totalItems} {totalItems === 1 ? "item" : "items"})
-              {refreshing && (
-                <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem", color: "#00eaff" }}>
-                  Updating...
-                </span>
-              )}
             </h1>
             {cartItems.length > 0 && (
               <button
                 className="clear-cart-btn"
                 onClick={handleClearCart}
-                disabled={clearLoading}
+                disabled={cartItems.length === 0}
               >
                 <FaTrash /> Clear Cart
               </button>
@@ -882,7 +789,7 @@ const Cart = () => {
                                   <button
                                     className="quantity-btn"
                                     onClick={() => handleQuantityChange(item._id, item.quantity, -1)}
-                                    disabled={processingIds.has(item._id) || updateLoading || item.quantity <= 1}
+                                    disabled={item.quantity <= 1}
                                   >
                                     <FaMinus />
                                   </button>
@@ -890,7 +797,7 @@ const Cart = () => {
                                   <button
                                     className="quantity-btn"
                                     onClick={() => handleQuantityChange(item._id, item.quantity, 1)}
-                                    disabled={processingIds.has(item._id) || updateLoading}
+                                    disabled={false}
                                   >
                                     <FaPlus />
                                   </button>
@@ -898,7 +805,7 @@ const Cart = () => {
                                 <button
                                   className="remove-btn"
                                   onClick={() => handleRemoveItem(item._id)}
-                                  disabled={processingIds.has(item._id) || deleteLoading}
+                                  disabled={false}
                                 >
                                   <FaTrash /> Remove
                                 </button>
