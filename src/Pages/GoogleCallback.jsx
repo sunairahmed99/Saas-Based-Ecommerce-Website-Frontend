@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import LoaderOverlay from '../Components/LoaderOverlay';
 import { fetchCurrentUser } from '../Features/Backend/UserSlice';
-import { fetchCartCount } from '../Features/Backend/CartSlice';
+import { fetchCartItems } from '../Features/Backend/CartSlice';
 import { fetchFavorites } from '../Features/Backend/FavoriteSlice';
 
 const GoogleCallback = () => {
@@ -28,7 +28,7 @@ const GoogleCallback = () => {
 
       try {
         await dispatch(fetchCurrentUser()).unwrap();
-        dispatch(fetchCartCount());
+        dispatch(fetchCartItems({ force: true }));
         if (loginType === 'google' || loginType === 'user') {
           dispatch(fetchFavorites());
         }

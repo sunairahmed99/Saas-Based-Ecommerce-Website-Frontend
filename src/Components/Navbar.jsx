@@ -8,7 +8,7 @@ import { API_BASE_URL } from "../config";
 import { selectUser, logout, fetchCurrentUser } from "../Features/Backend/UserSlice";
 import { selectSeller, logoutSeller, fetchCurrentSeller } from "../Features/Backend/SellerSlice";
 import { fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
-import { fetchCartCount, selectCartCount } from "../Features/Backend/CartSlice";
+import { fetchCartItems, selectCartCount } from "../Features/Backend/CartSlice";
 import { fetchcategories, selectcategories } from "../Features/Backend/CategorySlice";
 import { fetchsubcategories, selectsubcategories } from "../Features/Backend/SubCategorySlice";
 import "./Navbar.css";
@@ -91,8 +91,10 @@ const Navbar = () => {
     if (token && (loginType === "user" || loginType === "google")) {
       dispatch(fetchFavorites());
     }
-    if (token) {
-      dispatch(fetchCartCount());
+    const isCustomer =
+      loginType === "user" || loginType === "google";
+    if (token && isCustomer) {
+      dispatch(fetchCartItems());
     }
   }, [dispatch]);
 

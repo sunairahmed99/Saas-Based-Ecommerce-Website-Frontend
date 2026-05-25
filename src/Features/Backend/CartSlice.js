@@ -5,7 +5,8 @@ import { getAuthToken } from "../../utils/auth";
 import { logout } from "./UserSlice";
 
 const API_URL = `${API_BASE_URL}/cart`;
-const REQUEST_TIMEOUT = 20000;
+const REQUEST_TIMEOUT = 12000;
+const CART_CACHE_MS = 30000;
 
 const cartAxios = (config) =>
   axios({
@@ -92,7 +93,7 @@ export const addToCart = createAsyncThunk(
 
 export const fetchCartItems = createAsyncThunk(
   "cart/fetchCartItems",
-  async (_, { rejectWithValue }) => {
+  async (options = {}, { rejectWithValue }) => {
     try {
       const token = getAuthToken();
       if (!token) return [];
@@ -112,6 +113,23 @@ export const fetchCartItems = createAsyncThunk(
           "Failed to fetch cart items"
       );
     }
+  },
+  {
+    condition: (options = {}, { getState }) => {
+      const { force = false } = options;
+      const { cartItems, lastFetchedAt, loading, addLoading } = getState().cart;
+      if (loading || addLoading) return false;
+      if (cartItems.some((item) => item._optimistic)) return false;
+      if (
+        !force &&
+        cartItems.length > 0 &&
+        lastFetchedAt &&
+        Date.now() - lastFetchedAt < CART_CACHE_MS
+      ) {
+        return false;
+      }
+      return true;
+    },
   }
 );
 
@@ -240,6 +258,8 @@ const CartSlice = createSlice({
     totalItems: 0,
     totalCartValue: 0,
     countLoading: false,
+    lastFetchedAt: null,
+    refreshing: false,
   },
 
   reducers: {
@@ -277,16 +297,37 @@ const CartSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchCartItems.pending, (state) => {
-        state.loading = true;
         state.error = null;
+        if (state.cartItems.length === 0) {
+          state.loading = true;
+        } else {
+          state.refreshing = true;
+        }
       })
       .addCase(fetchCartItems.fulfilled, (state, action) => {
         state.loading = false;
-        state.cartItems = action.payload || [];
+        state.refreshing = false;
+        const serverItems = (action.payload || []).filter((item) => !item?._optimistic);
+        const optimisticItems = state.cartItems.filter((item) => item._optimistic);
+
+        if (optimisticItems.length > 0) {
+          const merged = [...serverItems];
+          optimisticItems.forEach((opt) => {
+            if (!merged.some((s) => cartItemsMatch(s, opt))) {
+              merged.push(opt);
+            }
+          });
+          state.cartItems = merged;
+        } else {
+          state.cartItems = serverItems;
+        }
+
+        state.lastFetchedAt = Date.now();
         recalcTotals(state);
       })
       .addCase(fetchCartItems.rejected, (state, action) => {
         state.loading = false;
+        state.refreshing = false;
         state.error = action.payload;
       })
 
@@ -391,9 +432,13 @@ const CartSlice = createSlice({
       })
       .addCase(fetchCartCount.fulfilled, (state, action) => {
         state.countLoading = false;
-        state.cartCount = action.payload.count;
-        state.totalItems = action.payload.totalItems;
-        state.totalCartValue = action.payload.totalCartValue;
+        if (state.cartItems.length === 0) {
+          state.cartCount = action.payload.count;
+          state.totalItems = action.payload.totalItems;
+          state.totalCartValue = action.payload.totalCartValue;
+        } else {
+          recalcTotals(state);
+        }
       })
       .addCase(fetchCartCount.rejected, (state) => {
         state.countLoading = false;
@@ -402,10 +447,12 @@ const CartSlice = createSlice({
       .addCase(logout, (state) => {
         state.cartItems = [];
         state.loading = false;
+        state.refreshing = false;
         state.addLoading = false;
         state.cartCount = 0;
         state.totalItems = 0;
         state.totalCartValue = 0;
+        state.lastFetchedAt = null;
       });
   },
 });
@@ -425,7 +472,24 @@ export const selectDeleteCartLoading = (state) => state.cart.deleteLoading;
 export const selectDeleteCartError = (state) => state.cart.deleteError;
 export const selectClearCartLoading = (state) => state.cart.clearLoading;
 export const selectClearCartError = (state) => state.cart.clearError;
-export const selectCartCount = (state) => state.cart.cartCount;
-export const selectTotalItems = (state) => state.cart.totalItems;
-export const selectTotalCartValue = (state) => state.cart.totalCartValue;
+export const selectCartCount = (state) => {
+  const items = state.cart.cartItems;
+  if (items.length > 0) return items.length;
+  return state.cart.cartCount;
+};
+export const selectTotalItems = (state) => {
+  const items = state.cart.cartItems;
+  if (items.length > 0) {
+    return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }
+  return state.cart.totalItems;
+};
+export const selectTotalCartValue = (state) => {
+  const items = state.cart.cartItems;
+  if (items.length > 0) {
+    return items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  }
+  return state.cart.totalCartValue;
+};
 export const selectCartCountLoading = (state) => state.cart.countLoading;
+export const selectCartRefreshing = (state) => state.cart.refreshing;

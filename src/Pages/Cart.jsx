@@ -18,9 +18,9 @@ import {
   updateCartItem,
   deleteCartItem,
   clearCart,
-  fetchCartCount,
   selectCartItems,
   selectCartLoading,
+  selectCartRefreshing,
   selectCartError,
   selectUpdateCartLoading,
   selectDeleteCartLoading,
@@ -28,7 +28,6 @@ import {
   selectTotalItems,
   selectTotalCartValue,
 } from "../Features/Backend/CartSlice";
-import { selectUser, selectUserInitializing } from "../Features/Backend/UserSlice";
 
 const Cart = () => {
   const dispatch = useDispatch();
@@ -41,23 +40,20 @@ const Cart = () => {
   const clearLoading = useSelector(selectClearCartLoading);
   const totalItems = useSelector(selectTotalItems);
   const totalCartValue = useSelector(selectTotalCartValue);
-  const user = useSelector(selectUser);
-  const userInitializing = useSelector(selectUserInitializing);
+  const refreshing = useSelector(selectCartRefreshing);
 
   const [toast, setToast] = useState(null);
   const [processingIds, setProcessingIds] = useState(new Set());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (userInitializing) {
-      return;
-    }
-    if (!token || !user) {
+    const loginType = localStorage.getItem("loginType");
+    if (!token || loginType === "seller") {
       navigate("/login");
       return;
     }
-    dispatch(fetchCartItems());
-  }, [dispatch, navigate, user, userInitializing]);
+    dispatch(fetchCartItems({ force: true }));
+  }, [dispatch, navigate]);
 
   // Auto-hide toast
   useEffect(() => {
@@ -85,8 +81,6 @@ const Cart = () => {
     try {
       // Make the API call - no optimistic update to prevent UI flicker
       await dispatch(updateCartItem({ cartItemId, quantity: newQuantity })).unwrap();
-
-      dispatch(fetchCartCount());
 
       setToast({
         type: "success",
@@ -117,7 +111,6 @@ const Cart = () => {
 
     try {
       await dispatch(deleteCartItem(cartItemId)).unwrap();
-      dispatch(fetchCartCount());
       setToast({
         type: "success",
         message: "Item removed from cart",
@@ -145,7 +138,6 @@ const Cart = () => {
 
     try {
       await dispatch(clearCart()).unwrap();
-      dispatch(fetchCartCount());
       setToast({
         type: "success",
         message: "Cart cleared successfully",
@@ -160,7 +152,9 @@ const Cart = () => {
     }
   };
 
-  if (loading || userInitializing) {
+  const showFullPageLoader = loading && cartItems.length === 0;
+
+  if (showFullPageLoader) {
     return (
       <>
         <Navbar />
@@ -765,6 +759,11 @@ const Cart = () => {
           <div className="cart-header">
             <h1 className="cart-title">
               <FaShoppingCart /> My Cart ({totalItems} {totalItems === 1 ? "item" : "items"})
+              {refreshing && (
+                <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem", color: "#00eaff" }}>
+                  Updating...
+                </span>
+              )}
             </h1>
             {cartItems.length > 0 && (
               <button
