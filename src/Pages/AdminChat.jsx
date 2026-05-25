@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import axios from 'axios';
+import { createAppSocket } from '../utils/socket';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FaUser, FaPaperPlane, FaSearch, FaCircle, FaArrowLeft, FaPaperclip, FaSmile, FaEllipsisV, FaComments } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
@@ -60,9 +60,21 @@ const AdminChat = () => {
     }, [messages]);
 
     useEffect(() => {
-        const newSocket = io(API_BASE);
+        const newSocket = createAppSocket(API_BASE);
+        if (!newSocket) {
+            socketRef.current = null;
+            setSocket(null);
+            return;
+        }
+
         socketRef.current = newSocket;
         setSocket(newSocket);
+
+        newSocket.on('connect_error', () => {
+            newSocket.close();
+            socketRef.current = null;
+            setSocket(null);
+        });
 
         newSocket.on('receive_message', (message) => {
             // Check if message belongs to current conversation using the ref

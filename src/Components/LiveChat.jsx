@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { selectUser } from '../Features/Backend/UserSlice';
 import axios from 'axios';
-import { FaPaperPlane, FaUserShield, FaTimes, FaComments } from 'react-icons/fa';;
+import { FaPaperPlane, FaUserShield, FaTimes, FaComments } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
 import { getAuthToken } from '../utils/auth';
-import { toast } from './Toast';
+import { createAppSocket } from '../utils/socket';
 import './LiveChat.css';
 
 const API_BASE = `${API_BASE_URL}`;
@@ -21,6 +20,7 @@ const LiveChat = () => {
     const [socket, setSocket] = useState(null);
     const [showLoginToast, setShowLoginToast] = useState(false);
     const messagesEndRef = useRef(null);
+    const socketRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,28 +31,6 @@ const LiveChat = () => {
             scrollToBottom();
         }
     }, [messages, isOpen]);
-
-    useEffect(() => {
-        if (user) {
-            const newSocket = io(API_BASE);
-            setSocket(newSocket);
-
-            const userId = user?.data?._id || user?._id;
-            newSocket.emit('join_room', userId);
-
-            // Fetch chat history
-            fetchHistory(userId);
-
-            newSocket.on('receive_message', (message) => {
-                // Only add if it's from admin (because user messages are added optimistically)
-                if (message.isAdmin) {
-                    setMessages((prev) => [...prev, message]);
-                }
-            });
-
-            return () => newSocket.close();
-        }
-    }, [user]);
 
     const fetchHistory = async (userId) => {
         try {
@@ -68,9 +46,54 @@ const LiveChat = () => {
         }
     };
 
+    useEffect(() => {
+        if (!isOpen || !user) {
+            if (socketRef.current) {
+                socketRef.current.close();
+                socketRef.current = null;
+                setSocket(null);
+            }
+            return;
+        }
+
+        const userId = user?.data?._id || user?._id;
+        if (!userId) return;
+
+        fetchHistory(userId);
+
+        const newSocket = createAppSocket(API_BASE);
+        if (!newSocket) {
+            setSocket(null);
+            return;
+        }
+
+        socketRef.current = newSocket;
+        setSocket(newSocket);
+
+        newSocket.emit('join_room', userId);
+
+        newSocket.on('receive_message', (message) => {
+            if (message.isAdmin) {
+                setMessages((prev) => [...prev, message]);
+            }
+        });
+
+        newSocket.on('connect_error', () => {
+            newSocket.close();
+            socketRef.current = null;
+            setSocket(null);
+        });
+
+        return () => {
+            newSocket.close();
+            socketRef.current = null;
+            setSocket(null);
+        };
+    }, [user, isOpen]);
+
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !socket) return;
+        if (!newMessage.trim() || !socket?.connected) return;
 
         const userId = user?.data?._id || user?._id;
         const messageData = {
@@ -81,9 +104,7 @@ const LiveChat = () => {
             createdAt: new Date().toISOString()
         };
 
-        // Add to state immediately for smooth UI
         setMessages((prev) => [...prev, messageData]);
-        
         socket.emit('send_message', messageData);
         setNewMessage('');
     };
@@ -99,13 +120,11 @@ const LiveChat = () => {
 
     return (
         <div className="live-chat-wrapper">
-            {/* Floating Icon */}
             <div className={`chat-icon-floating ${isOpen ? 'active' : ''}`} onClick={toggleChat}>
                 {isOpen ? <FaTimes /> : <FaComments />}
                 {!isOpen && <span className="online-dot"></span>}
             </div>
 
-            {/* Chat Window */}
             {isOpen && (
                 <div className="whatsapp-chat-window">
                     <div className="chat-header">
@@ -144,18 +163,18 @@ const LiveChat = () => {
                     <form className="chat-input-area" onSubmit={handleSendMessage}>
                         <input 
                             type="text" 
-                            placeholder="Type a message..." 
+                            placeholder={socket ? "Type a message..." : "Live chat unavailable (use local server for real-time)"}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
+                            disabled={!socket}
                         />
-                        <button type="submit" disabled={!newMessage.trim()}>
+                        <button type="submit" disabled={!newMessage.trim() || !socket}>
                             <FaPaperPlane />
                         </button>
                     </form>
                 </div>
             )}
 
-            {/* Toast Login Notification */}
             {showLoginToast && (
                 <div className="lc-login-toast">
                     <div className="lc-toast-icon">🔒</div>

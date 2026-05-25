@@ -76,7 +76,11 @@ export const addToCart = createAsyncThunk(
         headers: { auth_token: token },
       });
 
-      return res.data?.data ?? null;
+      const data = res.data?.data ?? res.data;
+      if (!data || !data._id) {
+        return rejectWithValue("Invalid cart response from server");
+      }
+      return data;
     } catch (err) {
       if (err.code === "ECONNABORTED") {
         return rejectWithValue("Request timed out. Please try again.");
@@ -309,6 +313,18 @@ const CartSlice = createSlice({
         state.refreshing = false;
         const serverItems = (action.payload || []).filter((item) => !item?._optimistic);
         const optimisticItems = state.cartItems.filter((item) => item._optimistic);
+        const confirmedLocal = state.cartItems.filter((item) => !item._optimistic);
+
+        if (
+          serverItems.length === 0 &&
+          confirmedLocal.length > 0 &&
+          state.lastFetchedAt &&
+          Date.now() - state.lastFetchedAt < 10000
+        ) {
+          state.lastFetchedAt = Date.now();
+          recalcTotals(state);
+          return;
+        }
 
         if (optimisticItems.length > 0) {
           const merged = [...serverItems];
@@ -354,11 +370,20 @@ const CartSlice = createSlice({
         } else {
           state.cartItems.push(payload);
         }
+        state.lastFetchedAt = Date.now();
         recalcTotals(state);
       })
       .addCase(addToCart.rejected, (state, action) => {
         state.addLoading = false;
         state.addError = action.payload;
+        const errMsg = String(action.payload || "").toLowerCase();
+        const isTransient =
+          errMsg.includes("timeout") ||
+          errMsg.includes("network") ||
+          errMsg.includes("econnaborted");
+
+        if (isTransient) return;
+
         const { productId, color, size } = action.meta.arg || {};
         if (productId) {
           removeOptimisticByVariant(state, productId, color, size);

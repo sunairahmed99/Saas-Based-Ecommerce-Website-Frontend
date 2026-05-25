@@ -9,7 +9,7 @@ import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLay
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
-import { addToCart, fetchCartItems, optimisticAddToCart, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
+import { addToCart, optimisticAddToCart, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { addToFavorites, deleteFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
 import { fetchUserOrderedProducts, createProductReview, selectUserOrderedProducts, selectCreatingProductReview, selectCreateProductReviewError } from "../Features/Backend/ReviewSlice";
@@ -122,7 +122,6 @@ function ProductDetail() {
     const loginType = localStorage.getItem("loginType");
 
     if (token && (loginType === "user" || loginType === "google") && user) {
-      dispatch(fetchCartItems());
       dispatch(fetchUserOrderedProducts());
     }
   }, [dispatch, user]);
@@ -349,12 +348,6 @@ function ProductDetail() {
       })
     );
 
-    setToast({
-      type: "success",
-      message: "Product added to cart successfully!",
-      icon: <FaCheckCircle />,
-    });
-
     dispatch(
       addToCart({
         productId: product._id,
@@ -364,10 +357,21 @@ function ProductDetail() {
       })
     )
       .unwrap()
+      .then(() => {
+        setToast({
+          type: "success",
+          message: "Product added to cart successfully!",
+          icon: <FaCheckCircle />,
+        });
+      })
       .catch((error) => {
+        const msg = typeof error === "string" ? error : "Failed to add to cart";
+        const isTransient = /timeout|network/i.test(msg);
         setToast({
           type: "error",
-          message: typeof error === "string" ? error : "Failed to add to cart",
+          message: isTransient
+            ? "Could not confirm add to cart. Check your connection and open Cart to verify."
+            : msg,
           icon: <FaExclamationCircle />,
         });
       })
