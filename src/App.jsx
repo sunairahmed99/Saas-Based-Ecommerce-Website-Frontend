@@ -12,7 +12,6 @@ const lazyWithRetry = (componentImport) =>
         /Failed to load module script/i.test(error.message);
       
       if (isChunkError) {
-        console.warn("Chunk load failed. Reloading page for latest version...", error);
         window.location.reload();
         return new Promise(() => {}); // Keep in pending state until reload
       }

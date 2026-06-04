@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import LoaderOverlay from "../LoaderOverlay";
 import { FaClock, FaMapMarkerAlt, FaUser } from "react-icons/fa";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import { API_BASE_URL } from '../../config';
 import ReusablePagination from "../ReusablePagination";
 
@@ -45,8 +46,8 @@ const Orders = () => {
   const itemsPerPage = 10;
   const queryClient = useQueryClient();
 
-  const { data: sellers = [] } = useQuery({
-    queryKey: ['sellers'],
+  const { data: sellers = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.sellers,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE}/seller/getall`);
       return res.data?.data || [];
@@ -54,18 +55,12 @@ const Orders = () => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: orders = [], isLoading: loading, error: queryError, refetch: loadOrders } = useQuery({
-    queryKey: ['admin-orders'],
+  const { data: orders = [], isLoading: loading, error: queryError, refetch: loadOrders } = useAdminQuery({
+    queryKey: adminQueryKeys.orders,
     queryFn: async () => {
-      const rawToken = localStorage.getItem("token");
-      if (!rawToken) throw new Error("Please login as admin to view orders.");
-      const token = rawToken.replace(/^Bearer\s+/i, "");
-      const res = await axios.get(`${API_BASE}/checkout/admin`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE}/checkout/admin`);
       return res.data?.data || [];
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   const [error, setError] = useState(null);
@@ -126,7 +121,6 @@ const Orders = () => {
 
     try {
       const result = await axios.patch(url, { status }, config);
-("Order status update success:", result.data);
       return result;
     } catch (err) {
       console.error("Order status update error:", err?.response?.data);
@@ -173,7 +167,7 @@ const Orders = () => {
     },
     onSuccess: () => {
       alert("Refund processed successfully!");
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.orders });
     },
     onError: (err) => {
       console.error("Refund processing error:", err);
@@ -196,7 +190,7 @@ const Orders = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.orders });
     },
     onError: (err) => {
       console.error("Order update error:", err);

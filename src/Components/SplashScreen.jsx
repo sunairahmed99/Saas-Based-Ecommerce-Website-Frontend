@@ -123,9 +123,8 @@ const SplashScreen = ({ onComplete }) => {
                         setStatusText(`Loading ${task.name}...`);
                     }
                     await task.fn();
-                    console.log(`Splash Prefetch Success: ${task.name}`);
-                } catch (err) {
-                    console.warn(`Splash Prefetch Failure: ${task.name}`, err);
+                } catch {
+                    /* prefetch failure is non-fatal */
                 } finally {
                     completed++;
                     if (isMountedRef.current) {
@@ -136,8 +135,8 @@ const SplashScreen = ({ onComplete }) => {
 
             // Fire remaining non-critical fetches in background (does not block splash screen transition)
             const fetchBackgroundResources = () => {
-                dispatch(fetchTopPerformingSellers()).unwrap().catch(e => console.warn(e));
-                dispatch(fetchApprovedReviews()).unwrap().catch(e => console.warn(e));
+                dispatch(fetchTopPerformingSellers()).unwrap().catch(() => {});
+                dispatch(fetchApprovedReviews()).unwrap().catch(() => {});
             };
             fetchBackgroundResources();
 

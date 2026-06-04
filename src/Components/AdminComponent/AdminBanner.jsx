@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form, Modal, Spinner, Image, Badge } from "react-bootstrap";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
@@ -8,10 +9,9 @@ import { API_BASE_URL } from "../../config";
 
 function AdminBanner() {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  const { data: banners = [], isLoading: loading, error: queryError } = useQuery({
-    queryKey: ['admin-banners'],
+  const { data: banners = [], isLoading: loading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.banners,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/offer/banner/getall`);
       return res.data?.success ? res.data.data : [];
@@ -24,13 +24,12 @@ function AdminBanner() {
       const res = await axios.post(`${API_BASE_URL}/offer/banner/create`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'auth_token': token
         }
       });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.banners });
     }
   });
 
@@ -39,27 +38,22 @@ function AdminBanner() {
       const res = await axios.patch(`${API_BASE_URL}/offer/banner/update/${id}`, bannerData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'auth_token': token
         }
       });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.banners });
     }
   });
 
   const deleteBannerMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.delete(`${API_BASE_URL}/offer/banner/delete/${id}`, {
-        headers: {
-          'auth_token': token
-        }
-      });
+      const res = await axios.delete(`${API_BASE_URL}/offer/banner/delete/${id}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.banners });
     }
   });
 

@@ -10,16 +10,12 @@ export const fetchUsers = createAsyncThunk(
   "users/fetchUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       if (!token) {
         return rejectWithValue("Please login as admin to access users");
       }
 
-      const res = await axios.get(`${API_URL}/getall`, {
-        headers: {
-          auth_token: token,
-        },
-      });
+      const res = await axios.get(`${API_URL}/getall`);
       return res.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || err.message);

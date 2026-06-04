@@ -3,7 +3,8 @@ import { Table, Button, Form, Image, Modal, Spinner } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { selectSeller } from "../../Features/Backend/SellerSlice";
@@ -15,28 +16,25 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
   const sellerId = seller?.data?._id || seller?._id;
   const queryClient = useQueryClient();
 
-  const { data: products = [], isLoading: loading, error: productsError } = useQuery({
-    queryKey: ['products', isSellerView, sellerId],
+  const { data: products = [], isLoading: loading, error: productsError } = useAdminQuery({
+    queryKey: adminQueryKeys.products(isSellerView, sellerId),
     queryFn: async () => {
-      const token = localStorage.getItem("token");
       if (isSellerView) {
         if (!sellerId) return [];
         const res = await axios.get(`${API_BASE_URL}/product/getsellerproduct`, {
-          headers: { seller_id: sellerId, auth_token: token }
+          headers: { seller_id: sellerId },
         });
         return res.data?.data || [];
-      } else {
-        const res = await axios.get(`${API_BASE_URL}/product/getall`);
-        return res.data?.data || [];
       }
+      const res = await axios.get(`${API_BASE_URL}/product/getall`);
+      return res.data?.data || [];
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   const error = productsError ? (productsError?.message || "Failed to load products") : null;
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+  const { data: categories = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.categories,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/category/getall`);
       return res.data?.data || [];
@@ -44,8 +42,8 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: subcategories = [] } = useQuery({
-    queryKey: ['subcategories'],
+  const { data: subcategories = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.subcategories,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/subcategory/getall`);
       return res.data?.data || [];
@@ -832,9 +830,12 @@ function Products({ isSellerView = false, setIsSidebarOpen }) {
     <motion.div className="modern-products-admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}>
       <style>{`
         .modern-products-admin {
-          padding: 0;
+          padding: 20px 24px;
           min-height: auto;
           background: transparent;
+          box-sizing: border-box;
+          max-width: 100%;
+          overflow-x: hidden;
         }
         .products-admin-toolbar {
           display: flex;

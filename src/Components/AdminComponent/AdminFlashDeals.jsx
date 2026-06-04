@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Table, Form, Spinner } from "react-bootstrap";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +10,6 @@ import { FaCheck, FaTimes, FaBan, FaStore, FaBolt, FaTag } from 'react-icons/fa'
 
 function AdminFlashDeals() {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [filter, setFilter] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -18,23 +18,19 @@ function AdminFlashDeals() {
   const [approvedPage, setApprovedPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data: pending = [], isLoading: pendingLoading, error: pendingError } = useQuery({
-    queryKey: ['admin-pending-flash-deals'],
+  const { data: pending = [], isLoading: pendingLoading, error: pendingError } = useAdminQuery({
+    queryKey: adminQueryKeys.flashPending,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/pending`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/pending`);
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: approved = [], isLoading: approvedLoading, error: approvedError } = useQuery({
-    queryKey: ['admin-approved-flash-deals'],
+  const { data: approved = [], isLoading: approvedLoading, error: approvedError } = useAdminQuery({
+    queryKey: adminQueryKeys.flashApproved,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/approved`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/flashdeal/admin/approved`);
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
@@ -42,15 +38,13 @@ function AdminFlashDeals() {
 
   const actionMutation = useMutation({
     mutationFn: async ({ flashDealId, action }) => {
-      const res = await axios.patch(`${API_BASE_URL}/flashdeal/approve`, { flashDealId, action }, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/flashdeal/approve`, { flashDealId, action });
       return res.data?.data;
     },
     onSuccess: (data, variables) => {
       setToast({ type: "success", message: `Status changed: ${variables.action}` });
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-flash-deals'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-approved-flash-deals'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.flashPending });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.flashApproved });
     },
     onError: (err) => {
       setToast({ type: "danger", message: err?.response?.data?.message || err?.message || "Operation failed" });

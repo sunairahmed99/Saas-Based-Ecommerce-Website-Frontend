@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { FaPlus, FaCoins, FaGift, FaUsers } from "react-icons/fa";
@@ -7,7 +8,6 @@ import ReusablePagination from "../ReusablePagination";
 
 const AdminWallet = () => {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [activeTab, setActiveTab] = useState('wallets');
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,12 +21,10 @@ const AdminWallet = () => {
     description: ''
   });
 
-  const { data: walletsData, isLoading: walletsLoading, error: walletsError } = useQuery({
-    queryKey: ['admin-wallets', currentPage],
+  const { data: walletsData, isLoading: walletsLoading, error: walletsError } = useAdminQuery({
+    queryKey: adminQueryKeys.wallets(currentPage),
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/wallet/admin/all?page=${currentPage}&limit=20`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/wallet/admin/all?page=${currentPage}&limit=20`);
       return res.data;
     },
     staleTime: 10 * 60 * 1000,
@@ -35,13 +33,11 @@ const AdminWallet = () => {
   const wallets = walletsData?.data || [];
   const walletPagination = walletsData?.pagination;
 
-  const { data: couponsData, isLoading: couponsLoading, error: couponsError } = useQuery({
-    queryKey: ['admin-user-coupons', couponsPage, statusFilter],
+  const { data: couponsData, isLoading: couponsLoading, error: couponsError } = useAdminQuery({
+    queryKey: adminQueryKeys.walletCoupons(couponsPage, statusFilter),
     queryFn: async () => {
       const statusParam = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
-      const res = await axios.get(`${API_BASE_URL}/wallet/admin/coupons?page=${couponsPage}&limit=20${statusParam}`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/wallet/admin/coupons?page=${couponsPage}&limit=20${statusParam}`);
       return res.data;
     },
     staleTime: 10 * 60 * 1000,
@@ -53,9 +49,7 @@ const AdminWallet = () => {
 
   const addBonusMutation = useMutation({
     mutationFn: async (payload) => {
-      const res = await axios.post(`${API_BASE_URL}/wallet/admin/add-bonus`, payload, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.post(`${API_BASE_URL}/wallet/admin/add-bonus`, payload);
       return res.data;
     },
     onSuccess: () => {

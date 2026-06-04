@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useAdminQuery, adminQueryKeys, useQueryClient } from '../../hooks/useAdminApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 import { FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaCopy, FaSearch } from 'react-icons/fa';
@@ -8,19 +9,16 @@ import './AdminCoupons.css';
 
 const AdminCoupons = () => {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [showForm, setShowForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const { data: couponsData, isLoading, error: queryError } = useQuery({
-    queryKey: ['admin-coupons', currentPage],
+  const { data: couponsData, isLoading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.coupons(currentPage),
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/coupon?page=${currentPage}&limit=10`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/coupon?page=${currentPage}&limit=10`);
       return res.data;
     },
     staleTime: 10 * 60 * 1000,
@@ -31,49 +29,41 @@ const AdminCoupons = () => {
 
   const createCouponMutation = useMutation({
     mutationFn: async (couponData) => {
-      const res = await axios.post(`${API_BASE_URL}/coupon`, couponData, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.post(`${API_BASE_URL}/coupon`, couponData);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); // prefix match all pages
     }
   });
 
   const updateCouponMutation = useMutation({
     mutationFn: async ({ id, updates }) => {
-      const res = await axios.put(`${API_BASE_URL}/coupon/${id}`, updates, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.put(`${API_BASE_URL}/coupon/${id}`, updates);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); // prefix match all pages
     }
   });
 
   const deleteCouponMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.delete(`${API_BASE_URL}/coupon/${id}`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.delete(`${API_BASE_URL}/coupon/${id}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); // prefix match all pages
     }
   });
 
   const toggleCouponStatusMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.patch(`${API_BASE_URL}/coupon/${id}/toggle`, {}, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/coupon/${id}/toggle`, {});
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); // prefix match all pages
     }
   });
 

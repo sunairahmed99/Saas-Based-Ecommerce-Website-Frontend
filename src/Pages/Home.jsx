@@ -44,15 +44,8 @@ const Home = memo(() => {
   const { data: trendingProducts = [], isLoading: trendingLoading, error: trendingError } = useQuery({
     queryKey: ['trendingProducts'],
     queryFn: async () => {
-      try {
-        console.log("Fetching trending products...");
-        const res = await axios.get(`${API_BASE_URL}/product/trending`);
-        console.log("Trending products response:", res.data);
-        return filterDummyProducts(res.data?.data || []);
-      } catch (err) {
-        console.error("Error fetching trending products:", err);
-        throw err;
-      }
+      const res = await axios.get(`${API_BASE_URL}/product/trending`);
+      return filterDummyProducts(res.data?.data || []);
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -61,15 +54,8 @@ const Home = memo(() => {
   const { data: latestProducts = [], isLoading: latestLoading, error: latestError } = useQuery({
     queryKey: ['latestProducts'],
     queryFn: async () => {
-      try {
-        console.log("Fetching latest products...");
-        const res = await axios.get(`${API_BASE_URL}/product/latest`);
-        console.log("Latest products response:", res.data);
-        return filterDummyProducts(res.data?.data || []);
-      } catch (err) {
-        console.error("Error fetching latest products:", err);
-        throw err;
-      }
+      const res = await axios.get(`${API_BASE_URL}/product/latest`);
+      return filterDummyProducts(res.data?.data || []);
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -79,15 +65,8 @@ const Home = memo(() => {
     queryKey: ['forYouProducts', userId],
     queryFn: async () => {
       if (!userId) return [];
-      try {
-        console.log("Fetching for you products...");
-        const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
-        console.log("For you products response:", res.data);
-        return filterDummyProducts(res.data?.data || []);
-      } catch (err) {
-        console.error("Error fetching for you products:", err);
-        throw err;
-      }
+      const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
+      return filterDummyProducts(res.data?.data || []);
     },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000,

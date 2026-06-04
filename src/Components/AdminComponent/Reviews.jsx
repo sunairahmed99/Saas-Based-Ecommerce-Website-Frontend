@@ -1,31 +1,27 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 
 const Reviews = () => {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  const { data: websiteReviews = [], isLoading: websiteLoading, error: websiteError } = useQuery({
-    queryKey: ['website-reviews'],
+  const { data: websiteReviews = [], isLoading: websiteLoading, error: websiteError } = useAdminQuery({
+    queryKey: adminQueryKeys.websiteReviews,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/review/getall`, {
-        headers: { auth_token: token },
-      });
+      const res = await axios.get(`${API_BASE_URL}/review/getall`);
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
 
-  const { data: productReviews = [], isLoading: productLoading, error: productError } = useQuery({
-    queryKey: ['product-reviews'],
+  const { data: productReviews = [], isLoading: productLoading, error: productError } = useAdminQuery({
+    queryKey: adminQueryKeys.productReviews,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/review/product/getall`, {
-        headers: { auth_token: token },
-      });
+      const res = await axios.get(`${API_BASE_URL}/review/product/getall`);
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
@@ -34,49 +30,41 @@ const Reviews = () => {
 
   const approveWebsiteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.patch(`${API_BASE_URL}/review/approve/${id}`, {}, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/review/approve/${id}`, {});
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['website-reviews'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.websiteReviews });
     }
   });
 
   const approveProductMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.patch(`${API_BASE_URL}/review/product/approve/${id}`, {}, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/review/product/approve/${id}`, {});
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-reviews'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.productReviews });
     }
   });
 
   const deleteWebsiteMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.delete(`${API_BASE_URL}/review/${id}`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.delete(`${API_BASE_URL}/review/${id}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['website-reviews'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.websiteReviews });
     }
   });
 
   const deleteProductMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.delete(`${API_BASE_URL}/review/product/${id}`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.delete(`${API_BASE_URL}/review/product/${id}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['product-reviews'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.productReviews });
     }
   });
 

@@ -39,7 +39,6 @@ export const fetchProfitAnalytics = createAsyncThunk(
                     localStorage.getItem("token");
 
       if (!token) {
-        console.error('No auth token found in Redux state or localStorage');
         return rejectWithValue("Authentication token missing. Please login again.");
       }
 
@@ -52,9 +51,6 @@ export const fetchProfitAnalytics = createAsyncThunk(
 
       return response.data;
     } catch (error) {
-      console.error('Profit analytics error:', error);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
       return rejectWithValue(error.response?.data?.message || "Failed to fetch profit analytics");
     }
   }

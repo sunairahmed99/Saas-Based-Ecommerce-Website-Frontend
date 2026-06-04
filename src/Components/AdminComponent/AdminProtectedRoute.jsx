@@ -3,14 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { selectUser, selectUserInitializing, fetchCurrentUser } from '../../Features/Backend/UserSlice';
 import LoaderOverlay from '../LoaderOverlay';
-import { getAuthToken } from '../../utils/auth';
-
-const getUserRecord = (user) => user?.data || user;
-
-const isAdminUser = (user) => {
-  const record = getUserRecord(user);
-  return (record?.role || '').toLowerCase() === 'admin';
-};
+import { getAuthToken, getLoginType, isUserLoginType, isAdminRole } from '../../utils/auth';
 
 const AdminProtectedRoute = ({ children }) => {
   const dispatch = useDispatch();
@@ -21,11 +14,12 @@ const AdminProtectedRoute = ({ children }) => {
   const profileFetchStarted = useRef(false);
 
   const token = getAuthToken();
-  const loginType = localStorage.getItem('loginType');
-  const hasAdmin = isAdminUser(user);
+  const loginType = getLoginType();
+  const hasValidLoginType = isUserLoginType(loginType);
+  const hasAdmin = isAdminRole(user);
 
   useEffect(() => {
-    if (!token || loginType !== 'user') {
+    if (!token || !hasValidLoginType) {
       navigate('/login');
       return;
     }
@@ -36,7 +30,7 @@ const AdminProtectedRoute = ({ children }) => {
         .unwrap()
         .then((data) => {
           setFetchFailed(false);
-          if ((data?.role || '').toLowerCase() !== 'admin') {
+          if (!isAdminRole(data)) {
             navigate('/');
           }
         })
@@ -44,7 +38,7 @@ const AdminProtectedRoute = ({ children }) => {
           setFetchFailed(true);
         });
     }
-  }, [dispatch, token, loginType, hasAdmin, initializing, navigate]);
+  }, [dispatch, token, hasValidLoginType, hasAdmin, initializing, navigate]);
 
   useEffect(() => {
     if (!initializing && hasAdmin) {
@@ -52,7 +46,7 @@ const AdminProtectedRoute = ({ children }) => {
     }
   }, [initializing, hasAdmin]);
 
-  if (!token || loginType !== 'user') {
+  if (!token || !hasValidLoginType) {
     return null;
   }
 

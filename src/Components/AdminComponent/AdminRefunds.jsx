@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useAdminQuery, adminQueryKeys, useQueryClient } from '../../hooks/useAdminApi';
 import axios from 'axios';
 import { FaCheck, FaTimes, FaEye, FaCalendarAlt, FaUser, FaClipboardList, FaCoins, FaStore, FaTag } from 'react-icons/fa';
 import ReusablePagination from '../ReusablePagination';
@@ -8,7 +9,6 @@ import './AdminRefunds.css';
 
 const AdminRefunds = () => {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const [selectedRefund, setSelectedRefund] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -18,12 +18,10 @@ const AdminRefunds = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data: refundsData, isLoading: refundsLoading } = useQuery({
-    queryKey: ['admin-refunds'],
+  const { data: refundsData, isLoading: refundsLoading } = useAdminQuery({
+    queryKey: adminQueryKeys.refunds,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/refund/all`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/refund/all`);
       // Transform the data to match the expected format
       return (res.data?.data || []).map(refund => ({
         _id: refund._id,
@@ -47,12 +45,10 @@ const AdminRefunds = () => {
 
   const refunds = refundsData || [];
 
-  const { data: refundStatsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['admin-refund-stats'],
+  const { data: refundStatsData, isLoading: statsLoading } = useAdminQuery({
+    queryKey: adminQueryKeys.refundStats,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/refund/stats`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/refund/stats`);
       const stats = res.data?.data?.stats || {};
       return {
         totalRequests: res.data?.data?.totalRequests || 0,
@@ -73,14 +69,12 @@ const AdminRefunds = () => {
 
   const processRefundMutation = useMutation({
     mutationFn: async ({ id, body }) => {
-      const res = await axios.post(`${API_BASE_URL}/refund/process/${id}`, body, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.post(`${API_BASE_URL}/refund/process/${id}`, body);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-refunds'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-refund-stats'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.refunds });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.refundStats });
     }
   });
 

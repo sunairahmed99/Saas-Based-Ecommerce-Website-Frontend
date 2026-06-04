@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form } from "react-bootstrap";
 import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
@@ -51,8 +52,8 @@ function Sellerss() {
     );
   };
 
-  const { data: sellerData = [], isLoading, error: queryError } = useQuery({
-    queryKey: ['sellers'],
+  const { data: sellerData = [], isLoading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.sellers,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/seller/getall`);
       return res.data?.data || [];

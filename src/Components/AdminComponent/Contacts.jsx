@@ -1,18 +1,14 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
 
 const Contacts = () => {
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-
-  const { data: contacts = [], isLoading: loading, error: queryError } = useQuery({
-    queryKey: ['contacts'],
+  const { data: contacts = [], isLoading: loading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.contacts,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/contact/getall`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/contact/getall`);
       return res.data?.data || res.data || [];
     },
     staleTime: 10 * 60 * 1000,

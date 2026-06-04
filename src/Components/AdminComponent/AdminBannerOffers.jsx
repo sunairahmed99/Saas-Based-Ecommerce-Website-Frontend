@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Table, Button, Form, Modal, Spinner, Image } from "react-bootstrap";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
@@ -9,8 +10,8 @@ import { API_BASE_URL } from "../../config";
 function AdminBannerOffers() {
   const queryClient = useQueryClient();
 
-  const { data: offers = [], isLoading: loading, error: queryError } = useQuery({
-    queryKey: ['admin-banner-offers'],
+  const { data: offers = [], isLoading: loading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.bannerOffers,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/offer/getall`);
       return res.data?.data || [];

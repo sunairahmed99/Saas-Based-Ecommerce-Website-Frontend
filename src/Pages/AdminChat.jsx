@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { createAppSocket } from '../utils/socket';
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../hooks/useAdminApi";
 import { FaUser, FaPaperPlane, FaSearch, FaCircle, FaArrowLeft, FaPaperclip, FaSmile, FaEllipsisV, FaComments } from 'react-icons/fa';
 import { API_BASE_URL } from '../config';
 import './AdminChat.css';
@@ -10,7 +10,6 @@ const API_BASE = `${API_BASE_URL}`;
 
 const AdminChat = () => {
     const queryClient = useQueryClient();
-    const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
     
     const [selectedUser, setSelectedUser] = useState(null);
     const [newMessage, setNewMessage] = useState('');
@@ -31,28 +30,22 @@ const AdminChat = () => {
         }, 100);
     };
 
-    const { data: users = [] } = useQuery({
-        queryKey: ['admin-chat-users'],
+    const { data: users = [] } = useAdminQuery({
+        queryKey: adminQueryKeys.chatUsers,
         queryFn: async () => {
-            const res = await axios.get(`${API_BASE}/api/chat/admin/users`, {
-                headers: { auth_token: token }
-            });
+            const res = await axios.get(`${API_BASE}/api/chat/admin/users`);
             return res.data?.data || [];
         },
-        staleTime: 5 * 60 * 1000,
     });
 
-    const { data: messages = [] } = useQuery({
-        queryKey: ['admin-chat-messages', selectedUser?._id],
+    const { data: messages = [] } = useAdminQuery({
+        queryKey: adminQueryKeys.chatMessages(selectedUser?._id),
         queryFn: async () => {
             if (!selectedUser?._id) return [];
-            const res = await axios.get(`${API_BASE}/api/chat/messages/${selectedUser._id}`, {
-                headers: { auth_token: token }
-            });
+            const res = await axios.get(`${API_BASE}/api/chat/messages/${selectedUser._id}`);
             return res.data?.data || [];
         },
         enabled: !!selectedUser?._id,
-        staleTime: 5 * 60 * 1000,
     });
 
     useEffect(() => {
@@ -80,16 +73,16 @@ const AdminChat = () => {
             // Check if message belongs to current conversation using the ref
             const currentSelected = selectedUserRef.current;
             if (currentSelected && (message.sender == currentSelected._id || message.receiver == currentSelected._id)) {
-                queryClient.setQueryData(['admin-chat-messages', currentSelected._id], (oldData) => {
+                queryClient.setQueryData(adminQueryKeys.chatMessages(currentSelected._id), (oldData) => {
                     return [...(oldData || []), message];
                 });
             }
             // Refresh user list for last message updates
-            queryClient.invalidateQueries({ queryKey: ['admin-chat-users'] });
+            queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
         });
 
         newSocket.on('new_chat_notification', () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-chat-users'] });
+            queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
         });
 
         return () => newSocket.close();

@@ -1,7 +1,7 @@
 import React, { useMemo, memo } from "react";
 import Charts from "./Chart";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { FaWallet } from "react-icons/fa";
@@ -28,21 +28,16 @@ function AnimatedCounter({ value }) {
 }
 
 const Dashboard = memo(() => {
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-
-  const { data: users = [] } = useQuery({
-    queryKey: ['admin-users'],
+  const { data: users = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.users,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/user/getall`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/user/getall`);
       return res.data?.data || [];
     },
-    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: sellers = [] } = useQuery({
-    queryKey: ['sellers'],
+  const { data: sellers = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.sellers,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/seller/getall`);
       return res.data?.data || [];
@@ -50,8 +45,8 @@ const Dashboard = memo(() => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: products = [] } = useQuery({
-    queryKey: ['products', false, undefined],
+  const { data: products = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.products(false, undefined),
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/product/getall`);
       return res.data?.data || [];
@@ -59,8 +54,8 @@ const Dashboard = memo(() => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+  const { data: categories = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.categories,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/category/getall`);
       return res.data?.data || [];
@@ -68,8 +63,8 @@ const Dashboard = memo(() => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: subcategories = [] } = useQuery({
-    queryKey: ['subcategories'],
+  const { data: subcategories = [] } = useAdminQuery({
+    queryKey: adminQueryKeys.subcategories,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/subcategory/getall`);
       return res.data?.data || [];
@@ -77,26 +72,20 @@ const Dashboard = memo(() => {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: analytics } = useQuery({
-    queryKey: ['admin-dashboard-stats'],
+  const { data: analytics } = useAdminQuery({
+    queryKey: adminQueryKeys.dashboardStats,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/analytics/dashboard`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/analytics/dashboard`);
       return res.data?.data || res.data;
     },
-    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: profitAnalytics } = useQuery({
-    queryKey: ['admin-profit-analytics'],
+  const { data: profitAnalytics } = useAdminQuery({
+    queryKey: adminQueryKeys.profitAnalytics,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/analytics/profit`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/analytics/profit`);
       return res.data?.data || res.data;
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   // Memoize calculated values

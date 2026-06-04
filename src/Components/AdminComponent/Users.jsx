@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button, Form } from "react-bootstrap";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import ReusablePagination from "../ReusablePagination";
@@ -50,16 +50,12 @@ function Users() {
     );
   };
 
-  const { data: user = [], isLoading: loading, isError: error } = useQuery({
-    queryKey: ['admin-users'],
+  const { data: user = [], isLoading: loading, isError: error } = useAdminQuery({
+    queryKey: adminQueryKeys.users,
     queryFn: async () => {
-      const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-      const res = await axios.get(`${API_BASE_URL}/user/getall`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/user/getall`);
       return res.data?.data || [];
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   useEffect(() => {
@@ -97,11 +93,7 @@ function Users() {
     setUsers(updated);
 
     try {
-      const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-      await axios.patch(`${API_BASE_URL}/user/toggleactive`, 
-        { userId: id },
-        { headers: { auth_token: token } }
-      );
+      await axios.patch(`${API_BASE_URL}/user/toggleactive`, { userId: id });
     } catch (err) {
       console.error("Error toggling user active status:", err);
       // Revert if failed

@@ -30,7 +30,7 @@ const getRefId = (value) => {
 const Shop = memo(() => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
@@ -138,19 +138,26 @@ const Shop = memo(() => {
     placeholderData: hasScopedUrlFilter ? undefined : keepPreviousData,
   });
 
-  // Sync sidebar category with URL when opening a category from home/top categories
+  // Sync sidebar category with URL when opening a category or subcategory from home/top categories/navbar
   useEffect(() => {
     if (categoryIdParam) {
       const cat = categories.find((c) => String(c._id) === String(categoryIdParam));
       if (cat) {
         setSelectedCategory(cat.name || cat.cname || "All");
       }
-      return;
-    }
-    if (!subcategoryIdParam && !sellerIdParam && !searchQueryParam) {
+    } else if (subcategoryIdParam && subcategories.length > 0) {
+      const subcat = subcategories.find((s) => String(s._id) === String(subcategoryIdParam));
+      if (subcat) {
+        const parentCatId = subcat.catid?._id || subcat.catid;
+        const cat = categories.find((c) => String(c._id) === String(parentCatId));
+        if (cat) {
+          setSelectedCategory(cat.name || cat.cname || "All");
+        }
+      }
+    } else if (!subcategoryIdParam && !sellerIdParam && !searchQueryParam) {
       setSelectedCategory("All");
     }
-  }, [categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, categories]);
+  }, [categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, categories, subcategories]);
 
   const maxPriceLimit = useMemo(() => {
     if (!rawProducts || rawProducts.length === 0) return 500000;
@@ -518,7 +525,24 @@ const Shop = memo(() => {
                       type="radio"
                       name="category"
                       checked={selectedCategory === cat}
-                      onChange={() => setSelectedCategory(cat)}
+                      onChange={() => {
+                        setSelectedCategory(cat);
+                        // If not filtering by seller, update the URL parameter for category
+                        if (!sellerIdParam) {
+                          const newParams = new URLSearchParams(searchParams);
+                          if (cat === "All") {
+                            newParams.delete('category');
+                            newParams.delete('subcategory');
+                          } else {
+                            const catObj = categories.find(c => (c.name || c.cname) === cat);
+                            if (catObj) {
+                              newParams.set('category', catObj._id);
+                              newParams.delete('subcategory');
+                            }
+                          }
+                          setSearchParams(newParams, { replace: true });
+                        }
+                      }}
                       aria-label={`Category: ${cat}`}
                     />
                     <span>{cat}</span>
@@ -623,6 +647,14 @@ const Shop = memo(() => {
                 setSelectedCategory("All");
                 setPriceRange([1, 10000000]);
                 setMinRating(0);
+                // Also clear URL params so all products are shown
+                if (categoryIdParam || subcategoryIdParam || sellerIdParam) {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.delete('category');
+                  newParams.delete('subcategory');
+                  newParams.delete('seller');
+                  setSearchParams(newParams, { replace: true });
+                }
               }}
             >
               Clear All Filters

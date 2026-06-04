@@ -23,10 +23,6 @@ export const createPaymentIntent = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      console.error("Payment intent error:", error.response?.data || error.message);
-      console.error("Error status:", error.response?.status);
-      console.error("Error details:", error.response?.data);
-
       // If backend API doesn't exist (404), return mock data for development
       if (error.response?.status === 404) {
         return {

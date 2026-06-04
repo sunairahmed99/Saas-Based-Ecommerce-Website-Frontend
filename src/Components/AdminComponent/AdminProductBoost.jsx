@@ -15,7 +15,8 @@ import {
   InputGroup,
   FormControl
 } from "react-bootstrap";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import { motion, AnimatePresence } from "framer-motion";
 import ReusablePagination from "../ReusablePagination";
 import { API_BASE_URL } from '../../config';
@@ -41,7 +42,6 @@ import {
 
 function AdminProductBoost() {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
   const styles = `
     .modern-admin-boost {
@@ -219,27 +219,22 @@ function AdminProductBoost() {
   `;
 
   // Boost Packages Query
-  const { data: packages = [], isLoading: packageLoading, error: packageError } = useQuery({
-    queryKey: ['admin-boost-packages'],
+  const { data: packages = [], isLoading: packageLoading, error: packageError } = useAdminQuery({
+    queryKey: adminQueryKeys.boostPackages,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/boostpackage/admin/all`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/boostpackage/admin/all`);
       return res.data?.data || [];
     },
     staleTime: 10 * 60 * 1000,
   });
 
   // Boost Requests Query
-  const { data: allRequests = [], isLoading: requestLoading, error: requestError } = useQuery({
-    queryKey: ['admin-boost-requests'],
+  const { data: allRequests = [], isLoading: requestLoading, error: requestError } = useAdminQuery({
+    queryKey: adminQueryKeys.boostRequests,
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE_URL}/boost/admin/all`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.get(`${API_BASE_URL}/boost/admin/all`);
       return res.data?.data || [];
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   const [activeTab, setActiveTab] = useState("packages");
@@ -268,8 +263,8 @@ function AdminProductBoost() {
   const itemsPerPage = 10;
 
   // Platform Settings Query
-  const { data: paymentInstructionData } = useQuery({
-    queryKey: ['admin-platform-settings'],
+  const { data: paymentInstructionData } = useAdminQuery({
+    queryKey: adminQueryKeys.platformSettings,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/api/platform-settings`);
       return res.data?.data?.paymentInstruction || "";
@@ -287,49 +282,41 @@ function AdminProductBoost() {
   // Mutations
   const createPackageMutation = useMutation({
     mutationFn: async (data) => {
-      const res = await axios.post(`${API_BASE_URL}/boostpackage/admin/create`, data, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.post(`${API_BASE_URL}/boostpackage/admin/create`, data);
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.boostPackages });
     }
   });
 
   const updatePackageMutation = useMutation({
     mutationFn: async ({ packageId, updateData }) => {
-      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/update/${packageId}`, updateData, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/update/${packageId}`, updateData);
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.boostPackages });
     }
   });
 
   const togglePackageStatusMutation = useMutation({
     mutationFn: async ({ packageId, isActive }) => {
-      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/toggle/${packageId}`, { isActive }, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/boostpackage/admin/toggle/${packageId}`, { isActive });
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-boost-packages'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.boostPackages });
     }
   });
 
   const approveOrRejectRequestMutation = useMutation({
     mutationFn: async ({ requestId, action }) => {
-      const res = await axios.patch(`${API_BASE_URL}/boost/admin/approve`, { requestId, action }, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.patch(`${API_BASE_URL}/boost/admin/approve`, { requestId, action });
       return res.data?.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-boost-requests'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.boostRequests });
     }
   });
 

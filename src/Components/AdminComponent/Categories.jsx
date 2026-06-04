@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Button, Form, Image, Modal, Spinner } from "react-bootstrap";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useAdminQuery, adminQueryKeys, useQueryClient } from "../../hooks/useAdminApi";
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,10 +9,9 @@ import ReusablePagination from "../ReusablePagination";
 
 function Categories() {
   const queryClient = useQueryClient();
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
 
-  const { data: categoryData = [], isLoading, error: queryError } = useQuery({
-    queryKey: ['categories'],
+  const { data: categoryData = [], isLoading, error: queryError } = useAdminQuery({
+    queryKey: adminQueryKeys.categories,
     queryFn: async () => {
       const res = await axios.get(`${API_BASE_URL}/category/getall`);
       return res.data?.data || [];
@@ -22,42 +22,34 @@ function Categories() {
   const createCategoryMutation = useMutation({
     mutationFn: async (formData) => {
       const res = await axios.post(`${API_BASE_URL}/category/create`, formData, {
-        headers: {
-          auth_token: token,
-          "Content-Type": "multipart/form-data",
-        }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.categories });
     }
   });
 
   const updateCategoryMutation = useMutation({
     mutationFn: async ({ id, formData }) => {
       const res = await axios.patch(`${API_BASE_URL}/category/update/${id}`, formData, {
-        headers: {
-          auth_token: token,
-          "Content-Type": "multipart/form-data",
-        }
+        headers: { "Content-Type": "multipart/form-data" },
       });
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.categories });
     }
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id) => {
-      const res = await axios.delete(`${API_BASE_URL}/category/delete/${id}`, {
-        headers: { auth_token: token }
-      });
+      const res = await axios.delete(`${API_BASE_URL}/category/delete/${id}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.categories });
     }
   });
 

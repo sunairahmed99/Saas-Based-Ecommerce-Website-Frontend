@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, memo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useAdminQuery, adminQueryKeys } from '../../hooks/useAdminApi';
 import axios from 'axios';
 import { FaChartLine, FaStore, FaBox, FaCalendarAlt, FaDownload, FaFilter } from 'react-icons/fa';
 import ReusablePagination from '../ReusablePagination';
@@ -7,8 +7,6 @@ import { API_BASE_URL } from '../../config';
 import './AdminProfitAnalytics.css';
 
 const AdminProfitAnalytics = memo(() => {
-  const token = localStorage.getItem("token")?.replace(/^Bearer\s+/i, "");
-
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -17,20 +15,16 @@ const AdminProfitAnalytics = memo(() => {
   const [productPage, setProductPage] = useState(1);
   const itemsPerPage = 10;
 
-  const { data: profitData, isLoading: loading, error: queryError } = useQuery({
-    queryKey: ['admin-profit-analytics', dateRange],
+  const { data: profitData, isLoading: loading, error: queryError } = useAdminQuery({
+    queryKey: [...adminQueryKeys.profitAnalytics, dateRange],
     queryFn: async () => {
       const params = {};
       if (dateRange.startDate) params.startDate = dateRange.startDate;
       if (dateRange.endDate) params.endDate = dateRange.endDate;
 
-      const res = await axios.get(`${API_BASE_URL}/analytics/profit`, {
-        headers: { auth_token: token },
-        params
-      });
+      const res = await axios.get(`${API_BASE_URL}/analytics/profit`, { params });
       return res.data?.data || {};
     },
-    staleTime: 5 * 60 * 1000,
   });
 
   // Memoize processed data
