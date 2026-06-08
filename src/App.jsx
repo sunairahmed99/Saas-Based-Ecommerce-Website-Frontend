@@ -52,17 +52,36 @@ import { ToastContainer } from "./Components/Toast";
 import SplashScreen from "./Components/SplashScreen";
 import AdminProtectedRoute from "./Components/AdminComponent/AdminProtectedRoute";
 
+const shouldSkipSplash = (pathname, search) => {
+  if (pathname === "/auth/google/callback") return true;
+  if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("splashComplete") === "1") {
+    return true;
+  }
+  if (pathname.startsWith("/product/")) return true;
+  if (pathname.startsWith("/shop") && /[?&](category|subcategory|search|seller)=/.test(search)) {
+    return true;
+  }
+  return false;
+};
+
 const AppContent = () => {
   const location = useLocation();
   const isGoogleAuthCallback = location.pathname === "/auth/google/callback";
-  const [isSplashComplete, setIsSplashComplete] = useState(isGoogleAuthCallback);
+  const [isSplashComplete, setIsSplashComplete] = useState(() =>
+    shouldSkipSplash(location.pathname, location.search)
+  );
   const hideChatWidgets = 
     location.pathname.startsWith("/admin") || 
     location.pathname.startsWith("/seller-admin") || 
     location.pathname.startsWith("/seller-chat");
 
+  const handleSplashComplete = () => {
+    sessionStorage.setItem("splashComplete", "1");
+    setIsSplashComplete(true);
+  };
+
   if (!isSplashComplete && !isGoogleAuthCallback) {
-    return <SplashScreen onComplete={() => setIsSplashComplete(true)} />;
+    return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   return (

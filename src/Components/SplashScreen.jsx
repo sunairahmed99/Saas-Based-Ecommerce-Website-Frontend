@@ -41,7 +41,7 @@ const SplashScreen = ({ onComplete }) => {
         const loadStore = async () => {
             const userId = user?.data?._id || user?._id || null;
 
-            // List of critical tasks that must succeed or complete before entering the app
+            // Only block on nav essentials; everything else loads in background
             const criticalTasks = [
                 {
                     name: 'Categories',
@@ -51,68 +51,7 @@ const SplashScreen = ({ onComplete }) => {
                     name: 'Subcategories',
                     fn: () => dispatch(fetchsubcategories()).unwrap()
                 },
-                {
-                    name: 'Banners',
-                    fn: () => dispatch(fetchBanners()).unwrap()
-                },
-                {
-                    name: 'Flash Deals',
-                    fn: () => dispatch(fetchHomeFlashDeals()).unwrap()
-                },
-                {
-                    name: 'Top Categories',
-                    fn: () => dispatch(fetchTrendingCategories(10)).unwrap()
-                },
-                {
-                    name: 'Featured Products',
-                    fn: () => dispatch(fetchFeaturedProducts()).unwrap()
-                },
-                {
-                    name: 'Boosted Products',
-                    fn: () => dispatch(fetchActiveBoosts()).unwrap()
-                },
-                {
-                    name: 'Trending Products',
-                    fn: () => queryClient.prefetchQuery({
-                        queryKey: ['trendingProducts'],
-                        queryFn: async () => {
-                            const res = await axios.get(`${API_BASE_URL}/product/trending`);
-                            return filterDummyProducts(res.data?.data || []);
-                        },
-                        staleTime: 5 * 60 * 1000
-                    })
-                },
-                {
-                    name: 'Latest Products',
-                    fn: () => queryClient.prefetchQuery({
-                        queryKey: ['latestProducts'],
-                        queryFn: async () => {
-                            const res = await axios.get(`${API_BASE_URL}/product/latest`);
-                            return filterDummyProducts(res.data?.data || []);
-                        },
-                        staleTime: 5 * 60 * 1000
-                    })
-                },
-                {
-                    name: 'All Products',
-                    fn: () => dispatch(fetchproducts()).unwrap()
-                }
             ];
-
-            // If user is authenticated, prefetch recommendations
-            if (userId) {
-                criticalTasks.push({
-                    name: 'Recommended Products',
-                    fn: () => queryClient.prefetchQuery({
-                        queryKey: ['forYouProducts', userId],
-                        queryFn: async () => {
-                            const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
-                            return filterDummyProducts(res.data?.data || []);
-                        },
-                        staleTime: 5 * 60 * 1000
-                    })
-                });
-            }
 
             const total = criticalTasks.length;
             let completed = 0;
@@ -133,21 +72,58 @@ const SplashScreen = ({ onComplete }) => {
                 }
             };
 
-            // Fire remaining non-critical fetches in background (does not block splash screen transition)
             const fetchBackgroundResources = () => {
+                dispatch(fetchBanners()).unwrap().catch(() => {});
+                dispatch(fetchHomeFlashDeals()).unwrap().catch(() => {});
+                dispatch(fetchTrendingCategories(10)).unwrap().catch(() => {});
+                dispatch(fetchFeaturedProducts()).unwrap().catch(() => {});
+                dispatch(fetchActiveBoosts()).unwrap().catch(() => {});
                 dispatch(fetchTopPerformingSellers()).unwrap().catch(() => {});
                 dispatch(fetchApprovedReviews()).unwrap().catch(() => {});
+                dispatch(fetchproducts()).unwrap().catch(() => {});
+                queryClient.prefetchQuery({
+                    queryKey: ['trendingProducts'],
+                    queryFn: async () => {
+                        const res = await axios.get(`${API_BASE_URL}/product/trending`);
+                        return filterDummyProducts(res.data?.data || []);
+                    },
+                    staleTime: 5 * 60 * 1000,
+                }).catch(() => {});
+                queryClient.prefetchQuery({
+                    queryKey: ['latestProducts'],
+                    queryFn: async () => {
+                        const res = await axios.get(`${API_BASE_URL}/product/latest`);
+                        return filterDummyProducts(res.data?.data || []);
+                    },
+                    staleTime: 5 * 60 * 1000,
+                }).catch(() => {});
+                if (userId) {
+                    queryClient.prefetchQuery({
+                        queryKey: ['forYouProducts', userId],
+                        queryFn: async () => {
+                            const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
+                            return filterDummyProducts(res.data?.data || []);
+                        },
+                        staleTime: 5 * 60 * 1000,
+                    }).catch(() => {});
+                }
+                queryClient.prefetchQuery({
+                    queryKey: ['shopProducts', { categoryIdParam: null, subcategoryIdParam: null, sellerIdParam: null, searchQueryParam: null }],
+                    queryFn: async () => {
+                        const res = await axios.get(`${API_BASE_URL}/product/getall`);
+                        return filterDummyProducts(res.data?.data || []);
+                    },
+                    staleTime: 5 * 60 * 1000,
+                }).catch(() => {});
             };
             fetchBackgroundResources();
 
-            // Await all critical resources in parallel
             await Promise.all(criticalTasks.map(executeTask));
 
             if (!isMountedRef.current) return;
 
-            // Enforce minimum animation time of 1.5s to prevent jarring fast flash
             const elapsed = Date.now() - startTime;
-            const remaining = Math.max(0, 1500 - elapsed);
+            const remaining = Math.max(0, 500 - elapsed);
 
             setTimeout(() => {
                 if (!isMountedRef.current) return;

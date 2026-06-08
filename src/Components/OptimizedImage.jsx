@@ -5,6 +5,7 @@ const OptimizedImage = memo(({
   src,
   alt,
   className = '',
+  priority = false,
   placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+Cjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUI5QkE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iMC4zZW0iPkxvYWRpbmcuLi48L3RleHQ+Cjwvc3ZnPg==',
   onLoad,
   onError,
@@ -12,13 +13,18 @@ const OptimizedImage = memo(({
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [isInView, setIsInView] = useState(false);
+  const [isInView, setIsInView] = useState(priority);
   const imgRef = useRef(null);
   const observerRef = useRef(null);
 
   const optimizedSrc = getOptimizedImageUrl(src, alt);
 
   useEffect(() => {
+    if (priority) {
+      setIsInView(true);
+      return undefined;
+    }
+
     // Intersection Observer for lazy loading
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -42,7 +48,7 @@ const OptimizedImage = memo(({
     return () => {
       observerRef.current?.disconnect();
     };
-  }, []);
+  }, [priority]);
 
   const handleLoad = () => {
     setIsLoaded(true);
@@ -99,7 +105,8 @@ const OptimizedImage = memo(({
             transition: 'opacity 0.3s ease-in-out',
             transform: 'translateZ(0)', // Hardware acceleration
           }}
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           decoding="async"
           {...props}
         />

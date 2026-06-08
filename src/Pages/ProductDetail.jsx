@@ -1,30 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image } from "react-bootstrap";
 import { FaStar, FaShoppingCart, FaHeart, FaUser, FaTag, FaBox, FaPalette, FaLayerGroup } from "react-icons/fa";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
-import { fetchRelatedProducts, selectRelatedProducts, selectProducts, selectProductsLoading, setProductViews } from "../Features/Backend/ProductSlice";
+import { fetchRelatedProducts, selectRelatedProducts, selectProducts, setProductViews } from "../Features/Backend/ProductSlice";
 import { addToCart, getCartProductId, selectCartItems } from "../Features/Backend/CartSlice";
 import { selectUser } from "../Features/Backend/UserSlice";
 import { addToFavorites, deleteFavorite, selectAddFavoriteLoading, selectAddFavoriteError, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
 import { fetchUserOrderedProducts, createProductReview, selectUserOrderedProducts, selectCreatingProductReview, selectCreateProductReviewError } from "../Features/Backend/ReviewSlice";
 import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { trackViewedProduct } from "../utils/userBehavior";
-import { API_BASE_URL } from '../config';
 import OptimizedImage from "../Components/OptimizedImage";
 import { resolveProductImage } from "../constants/images";
+import { fetchProductById, findProductInShopCache } from "../utils/prefetchProduct";
 
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const allProducts = useSelector(selectProducts) || [];
-  const loading = useSelector(selectProductsLoading);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -79,25 +78,17 @@ function ProductDetail() {
 
   const relatedProducts = useSelector(selectRelatedProducts) || [];
 
-  // Find preloaded catalog details from Redux cache (pre-fetched on splash screen)
-  const preloadedProduct = allProducts.find((p) => p._id === id);
+  const userId = user?._id || localStorage.getItem("userId") || undefined;
+  const preloadedProduct = allProducts.find((p) => String(p._id) === String(id));
+  const cachedProduct =
+    queryClient.getQueryData(["product", id]) ||
+    preloadedProduct ||
+    findProductInShopCache(queryClient, id);
 
-  // High-performance caching and fetching using TanStack Query
   const { data: product, isLoading, refetch } = useQuery({
-    queryKey: ['product', id],
+    queryKey: ["product", id],
     queryFn: async () => {
-      const userId = user && user._id ? user._id : localStorage.getItem("userId") || undefined;
-      const res = await axios.get(
-        `${API_BASE_URL}/product/view/${id}`,
-        { 
-          params: { 
-            device_id: deviceId,
-            user_id: userId 
-          } 
-        }
-      );
-      
-      const updated = res?.data?.data;
+      const updated = await fetchProductById(id, userId);
       if (updated) {
         if (updated._id && typeof updated.views === "number") {
           dispatch(setProductViews({ id: updated._id, views: updated.views }));
@@ -106,10 +97,10 @@ function ProductDetail() {
       }
       return updated;
     },
-    // Seed the UI instantly with pre-fetched Redux data
-    initialData: preloadedProduct || undefined,
-    initialDataUpdatedAt: preloadedProduct ? Date.now() - 60000 : undefined, // Forces a quiet background refresh
-    staleTime: 30000,
+    initialData: cachedProduct,
+    placeholderData: (previousData) => previousData ?? cachedProduct,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   // Only show the loading spinner if we have absolutely no cached product data
@@ -126,10 +117,12 @@ function ProductDetail() {
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (product && product.catid) {
-      const categoryId = product.catid._id || product.catid;
+    if (!product?.catid) return undefined;
+    const categoryId = product.catid._id || product.catid;
+    const timer = window.setTimeout(() => {
       dispatch(fetchRelatedProducts({ productId: product._id, catId: categoryId }));
-    }
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [dispatch, product?._id, product?.catid]);
 
 
@@ -409,7 +402,7 @@ function ProductDetail() {
   return (
     <>
       <Navbar />
-      <motion.div className="product-detail-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}>
+      <motion.div className="product-detail-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
         <style>{`
           .product-detail-page {
             min-height: 90vh;
@@ -1491,9 +1484,9 @@ function ProductDetail() {
         `}</style>
 
         <div className="product-detail-container">
-          <motion.div className="product-images-section" initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6 }}>
+          <motion.div className="product-images-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
             <div className="main-image-wrapper">
-              <OptimizedImage src={mainImage} alt={product.pname} />
+              <OptimizedImage src={mainImage} alt={product.pname} priority />
             </div>
             {images.length >= 1 && (
               <div className="thumbnail-row">
@@ -1509,7 +1502,7 @@ function ProductDetail() {
               </div>
             )}
           </motion.div>
-          <motion.div className="product-info-section" initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ duration: 0.6, delay: 0.2 }}>
+          <motion.div className="product-info-section" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: 0.05 }}>
             <h1 className="product-title">{product.pname}</h1>
             <div className="product-seller">
               <FaUser color="#00eaff" />

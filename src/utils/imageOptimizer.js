@@ -219,5 +219,9 @@ export const getOptimizedImageUrl = (src, alt) => {
     return pools.general[index];
   }
 
+  if (src.includes("res.cloudinary.com") && src.includes("/upload/") && !src.includes("w_")) {
+    return src.replace("/upload/", "/upload/f_auto,q_auto,w_600/");
+  }
+
   return src;
 };

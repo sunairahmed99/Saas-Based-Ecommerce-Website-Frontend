@@ -1,11 +1,14 @@
 import React, { useEffect, memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { prefetchShopCategory } from "../../utils/prefetchProduct";
 import { fetchTrendingCategories, incrementCategoryClicks, selectTrendingCategories } from "../../Features/Backend/CategorySlice";
 import OptimizedImage from "../OptimizedImage";
 
 const TopCategories = memo(() => {
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const categories = useSelector(selectTrendingCategories);
 
   // Fetch trending categories only if not already loaded
@@ -54,7 +57,11 @@ const TopCategories = memo(() => {
                   to={`/shop?category=${cat._id}`}
                   className="category-card"
                   style={{ textDecoration: "none", color: "inherit" }}
-                  onClick={() => handleCategoryClick(cat._id)}
+                  onMouseEnter={() => prefetchShopCategory(queryClient, cat._id)}
+                  onClick={() => {
+                    prefetchShopCategory(queryClient, cat._id);
+                    handleCategoryClick(cat._id);
+                  }}
                 >
                   <div className="category-icon" style={{ background: categoryColor }}>
                     {cat.Image ? (

@@ -3,8 +3,7 @@ import { FaUserCircle, FaHeart, FaShoppingCart } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { API_BASE_URL } from "../config";
+import { prefetchShopCategory, prefetchShopSubcategory } from "../utils/prefetchProduct";
 import { selectUser, logout, fetchCurrentUser } from "../Features/Backend/UserSlice";
 import { selectSeller, logoutSeller, fetchCurrentSeller } from "../Features/Backend/SellerSlice";
 import { fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
@@ -12,16 +11,6 @@ import { selectCartBadgeCount } from "../Features/Backend/CartSlice";
 import { fetchcategories, selectcategories } from "../Features/Backend/CategorySlice";
 import { fetchsubcategories, selectsubcategories } from "../Features/Backend/SubCategorySlice";
 import "./Navbar.css";
-
-// Helper to filter out dummy products matching the same criteria as Home/Shop pages
-const filterDummyProducts = (products) => {
-  if (!Array.isArray(products)) return [];
-  return products.filter(p => {
-    if (!p) return false;
-    const isPulseDummy = p.pname && p.pname.includes('Pulse');
-    return !isPulseDummy;
-  });
-};
 
 const Navbar = () => {
   const queryClient = useQueryClient();
@@ -190,20 +179,12 @@ const Navbar = () => {
                   <div
                     className="cat-title"
                     onMouseEnter={() => {
-                      if (!isMobile) {
-                        queryClient.prefetchQuery({
-                          queryKey: ['shopProducts', { categoryIdParam: cat.id, subcategoryIdParam: null, sellerIdParam: null, searchQueryParam: null }],
-                          queryFn: async () => {
-                            const res = await axios.get(`${API_BASE_URL}/product/category/${cat.id}`);
-                            return filterDummyProducts(res.data?.data || []);
-                          },
-                          staleTime: 5 * 60 * 1000
-                        });
-                      }
+                      if (!isMobile) prefetchShopCategory(queryClient, cat.id);
                     }}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      prefetchShopCategory(queryClient, cat.id);
                       navigate(`/shop?category=${cat.id}`);
                       setShopOpen(false);
                       setHoveredCategory(null);
@@ -227,20 +208,12 @@ const Navbar = () => {
                             className="subcategory"
                             key={sub.id || sub.name}
                             onMouseEnter={() => {
-                              if (!isMobile) {
-                                queryClient.prefetchQuery({
-                                  queryKey: ['shopProducts', { categoryIdParam: null, subcategoryIdParam: sub.id, sellerIdParam: null, searchQueryParam: null }],
-                                  queryFn: async () => {
-                                    const res = await axios.get(`${API_BASE_URL}/product/subcategory/${sub.id}`);
-                                    return filterDummyProducts(res.data?.data || []);
-                                  },
-                                  staleTime: 5 * 60 * 1000
-                                });
-                              }
+                              if (!isMobile) prefetchShopSubcategory(queryClient, sub.id);
                             }}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              prefetchShopSubcategory(queryClient, sub.id);
                               navigate(`/shop?subcategory=${sub.id}`);
                               setShopOpen(false);
                               setHoveredCategory(null);

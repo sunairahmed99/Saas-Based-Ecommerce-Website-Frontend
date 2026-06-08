@@ -6,7 +6,7 @@ import Navbar from "../Components/Navbar";
 import Footer from "../Components/Home/Footer";
 import HeroBanner from "../Components/Home/HeroBanner";
 import { FaStar, FaHeart, FaSearch, FaFilter, FaTimes, FaCheckCircle, FaExclamationCircle, FaUser, FaHome } from "react-icons/fa";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
 import { addToFavorites, deleteFavorite, selectFavorites, getProductIdFromFavorite } from "../Features/Backend/FavoriteSlice";
@@ -20,6 +20,7 @@ import SEOHead from "../Components/SEOHead";
 import { trackCategoryVisit } from "../utils/userBehavior";
 import OptimizedImage from "../Components/OptimizedImage";
 import { resolveProductImage } from "../constants/images";
+import { prefetchProduct, getFilteredProductsFromAllCache } from "../utils/prefetchProduct";
 
 const getRefId = (value) => {
   if (value == null) return null;
@@ -29,6 +30,7 @@ const getRefId = (value) => {
 
 const Shop = memo(() => {
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -91,10 +93,6 @@ const Shop = memo(() => {
   const subcategoryIdParam = searchParams.get('subcategory');
   const sellerIdParam = searchParams.get('seller');
   const searchQueryParam = searchParams.get('search');
-  const hasScopedUrlFilter = Boolean(
-    categoryIdParam || subcategoryIdParam || sellerIdParam || searchQueryParam
-  );
-
   const scopeProducts = useCallback((products) => {
     if (!Array.isArray(products)) return [];
 
@@ -135,7 +133,15 @@ const Shop = memo(() => {
     queryKey: ['shopProducts', { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam }],
     queryFn: fetchShopProducts,
     staleTime: 5 * 60 * 1000,
-    placeholderData: hasScopedUrlFilter ? undefined : keepPreviousData,
+    placeholderData: (previousData) => {
+      if (previousData !== undefined) return previousData;
+      const cached = getFilteredProductsFromAllCache(queryClient, {
+        categoryId: categoryIdParam,
+        subcategoryId: subcategoryIdParam,
+        sellerId: sellerIdParam,
+      });
+      return cached?.length ? cached : undefined;
+    },
   });
 
   // Sync sidebar category with URL when opening a category or subcategory from home/top categories/navbar
@@ -166,7 +172,7 @@ const Shop = memo(() => {
     return Math.max(...prices, 10000); // at least 10,000
   }, [rawProducts]);
 
-  const loading = productsLoading;
+  const loading = productsLoading && rawProducts.length === 0;
 
   // Set breadcrumbs based on URL parameters
   useEffect(() => {
@@ -226,6 +232,10 @@ const Shop = memo(() => {
     const pid = String(productId);
     return favorites.some((fav) => getProductIdFromFavorite(fav) === pid);
   }, [favorites]);
+
+  const handleProductPrefetch = useCallback((productId) => {
+    prefetchProduct(queryClient, productId, user?._id);
+  }, [queryClient, user?._id]);
 
   // Memoized favorite toggle handler
   const handleFavoriteClick = useCallback(async (e, product) => {
@@ -706,7 +716,13 @@ const Shop = memo(() => {
             ) : paginatedProducts.length > 0 ? (
               <div className="products-grid">
                 {paginatedProducts.map((product) => (
-                  <div key={product.id || product._id} className="product-card" onClick={() => navigate(`/product/${product.id || product._id}`)} style={{ cursor: "pointer" }}>
+                  <div
+                    key={product.id || product._id}
+                    className="product-card"
+                    onMouseEnter={() => handleProductPrefetch(product.id || product._id)}
+                    onClick={() => navigate(`/product/${product.id || product._id}`)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <div className="product-image-wrapper">
                       <OptimizedImage src={resolveProductImage(product.image)} alt={product.name} />
                       {product.discount > 0 && (
