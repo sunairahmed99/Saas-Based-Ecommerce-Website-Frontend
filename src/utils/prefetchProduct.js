@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config";
+import { ALL_SHOP_QUERY_PARAMS, saveCatalogCache } from "./catalogCache";
 
 const getDeviceId = () => {
   let deviceId = localStorage.getItem("deviceId");
@@ -36,13 +37,15 @@ const filterDummyProducts = (products) => {
 
 export async function fetchAllShopProducts() {
   const res = await axios.get(`${API_BASE_URL}/product/getall`);
-  return filterDummyProducts(res.data?.data || []);
+  const products = filterDummyProducts(res.data?.data || []);
+  saveCatalogCache({ products });
+  return products;
 }
 
 export function prefetchAllShopProducts(queryClient) {
   if (!queryClient) return Promise.resolve();
   return queryClient.prefetchQuery({
-    queryKey: ["shopProducts", ALL_SHOP_QUERY_KEY],
+    queryKey: ["shopProducts", ALL_SHOP_QUERY_PARAMS],
     queryFn: fetchAllShopProducts,
     staleTime: 5 * 60 * 1000,
   });
@@ -83,13 +86,6 @@ export function findProductInShopCache(queryClient, productId) {
   return undefined;
 }
 
-const ALL_SHOP_QUERY_KEY = {
-  categoryIdParam: null,
-  subcategoryIdParam: null,
-  sellerIdParam: null,
-  searchQueryParam: null,
-};
-
 const getRefId = (value) => {
   if (value == null) return null;
   if (typeof value === "object" && value._id != null) return String(value._id);
@@ -99,7 +95,7 @@ const getRefId = (value) => {
 /** Filter cached "all products" list for instant category/subcategory/seller views */
 export function getFilteredProductsFromAllCache(queryClient, filters) {
   if (!queryClient) return undefined;
-  const allCached = queryClient.getQueryData(["shopProducts", ALL_SHOP_QUERY_KEY]);
+  const allCached = queryClient.getQueryData(["shopProducts", ALL_SHOP_QUERY_PARAMS]);
   if (!Array.isArray(allCached) || allCached.length === 0) return undefined;
 
   const { categoryId, subcategoryId, sellerId } = filters;

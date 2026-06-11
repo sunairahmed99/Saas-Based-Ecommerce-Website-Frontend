@@ -124,6 +124,9 @@ const Login = () => {
     }
     try {
       setGoogleLoginLoading(true);
+      if (!sessionStorage.getItem('postLoginRedirect')) {
+        sessionStorage.setItem('postLoginRedirect', '/shop');
+      }
       const frontendUrl = encodeURIComponent(window.location.origin);
       window.location.href = `${API_BASE_URL}/user/auth/google?frontend_url=${frontendUrl}`;
     } catch (error) {

@@ -21,6 +21,7 @@ import { trackCategoryVisit } from "../utils/userBehavior";
 import OptimizedImage from "../Components/OptimizedImage";
 import { resolveProductImage } from "../constants/images";
 import { prefetchProduct, getFilteredProductsFromAllCache } from "../utils/prefetchProduct";
+import { loadCatalogCache, saveCatalogCache } from "../utils/catalogCache";
 import { selectProducts } from "../Features/Backend/ProductSlice";
 
 const getRefId = (value) => {
@@ -41,6 +42,9 @@ const Shop = memo(() => {
   const favorites = useSelector(selectFavorites) || [];
   const categories = useSelector(selectcategories) || [];
   const subcategories = useSelector(selectsubcategories) || [];
+  const catalogSnapshot = useMemo(() => loadCatalogCache(), []);
+  const displayCategories = categories.length > 0 ? categories : (catalogSnapshot?.categories || []);
+  const displaySubcategories = subcategories.length > 0 ? subcategories : (catalogSnapshot?.subcategories || []);
   const sellers = useSelector(selectSellers) || [];
   const dynamicBanners = useSelector(selectBanners) || [];
   const [bannersLoaded, setBannersLoaded] = useState(false);
@@ -61,8 +65,8 @@ const Shop = memo(() => {
   // Memoized category options
   const categoryOptions = useMemo(() => [
     "All",
-    ...categories.map(cat => cat.name || cat.cname || "Category")
-  ], [categories]);
+    ...displayCategories.map(cat => cat.name || cat.cname || "Category")
+  ], [displayCategories]);
 
   // Track category visits for recommendations
   useEffect(() => {
@@ -70,6 +74,35 @@ const Shop = memo(() => {
       trackCategoryVisit(selectedCategory);
     }
   }, [selectedCategory]);
+
+  const categoryIdParam = searchParams.get('category');
+  const subcategoryIdParam = searchParams.get('subcategory');
+  const sellerIdParam = searchParams.get('seller');
+  const searchQueryParam = searchParams.get('search');
+
+  const scopeProducts = useCallback((products) => {
+    if (!Array.isArray(products)) return [];
+
+    if (subcategoryIdParam) {
+      return products.filter((p) => getRefId(p?.subcatid) === String(subcategoryIdParam));
+    }
+    if (categoryIdParam) {
+      return products.filter((p) => getRefId(p?.catid) === String(categoryIdParam));
+    }
+    if (sellerIdParam) {
+      return products.filter((p) => getRefId(p?.sellerid) === String(sellerIdParam));
+    }
+    return products;
+  }, [categoryIdParam, subcategoryIdParam, sellerIdParam]);
+
+  const resolveInitialShopProducts = useCallback(() => {
+    const queryKey = { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam };
+    const fromQuery = queryClient.getQueryData(["shopProducts", queryKey]);
+    if (Array.isArray(fromQuery) && fromQuery.length > 0) return fromQuery;
+    if (catalogSnapshot?.products?.length) return scopeProducts(catalogSnapshot.products);
+    if (reduxProducts.length > 0) return scopeProducts(reduxProducts);
+    return undefined;
+  }, [queryClient, categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, catalogSnapshot, reduxProducts, scopeProducts]);
 
   // Fetch static lookups once on mount (only if not already loaded)
   useEffect(() => {
@@ -90,25 +123,6 @@ const Shop = memo(() => {
       setBannersLoaded(true);
     }
   }, [dispatch, categories?.length, subcategories?.length, sellers?.length, dynamicBanners?.length]);
-
-  const categoryIdParam = searchParams.get('category');
-  const subcategoryIdParam = searchParams.get('subcategory');
-  const sellerIdParam = searchParams.get('seller');
-  const searchQueryParam = searchParams.get('search');
-  const scopeProducts = useCallback((products) => {
-    if (!Array.isArray(products)) return [];
-
-    if (subcategoryIdParam) {
-      return products.filter((p) => getRefId(p?.subcatid) === String(subcategoryIdParam));
-    }
-    if (categoryIdParam) {
-      return products.filter((p) => getRefId(p?.catid) === String(categoryIdParam));
-    }
-    if (sellerIdParam) {
-      return products.filter((p) => getRefId(p?.sellerid) === String(sellerIdParam));
-    }
-    return products;
-  }, [categoryIdParam, subcategoryIdParam, sellerIdParam]);
 
   const fetchShopProducts = async () => {
     let url = `${API_BASE_URL}/product/getall`;
@@ -133,8 +147,15 @@ const Shop = memo(() => {
 
   const { data: rawProducts = [], isLoading: productsLoading } = useQuery({
     queryKey: ['shopProducts', { categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam }],
-    queryFn: fetchShopProducts,
+    queryFn: async () => {
+      const list = await fetchShopProducts();
+      if (!categoryIdParam && !subcategoryIdParam && !sellerIdParam && !searchQueryParam && list.length > 0) {
+        saveCatalogCache({ products: list });
+      }
+      return list;
+    },
     staleTime: 5 * 60 * 1000,
+    initialData: resolveInitialShopProducts,
     placeholderData: (previousData) => {
       if (previousData !== undefined) return previousData;
       const cached = getFilteredProductsFromAllCache(queryClient, {
@@ -143,25 +164,33 @@ const Shop = memo(() => {
         sellerId: sellerIdParam,
       });
       if (cached?.length) return cached;
-      if (reduxProducts.length > 0) {
-        return scopeProducts(reduxProducts);
-      }
+      if (catalogSnapshot?.products?.length) return scopeProducts(catalogSnapshot.products);
+      if (reduxProducts.length > 0) return scopeProducts(reduxProducts);
       return undefined;
     },
   });
 
+  useEffect(() => {
+    if (categories.length > 0 || subcategories.length > 0) {
+      saveCatalogCache({
+        categories: categories.length > 0 ? categories : undefined,
+        subcategories: subcategories.length > 0 ? subcategories : undefined,
+      });
+    }
+  }, [categories, subcategories]);
+
   // Sync sidebar category with URL when opening a category or subcategory from home/top categories/navbar
   useEffect(() => {
     if (categoryIdParam) {
-      const cat = categories.find((c) => String(c._id) === String(categoryIdParam));
+      const cat = displayCategories.find((c) => String(c._id) === String(categoryIdParam));
       if (cat) {
         setSelectedCategory(cat.name || cat.cname || "All");
       }
-    } else if (subcategoryIdParam && subcategories.length > 0) {
-      const subcat = subcategories.find((s) => String(s._id) === String(subcategoryIdParam));
+    } else if (subcategoryIdParam && displaySubcategories.length > 0) {
+      const subcat = displaySubcategories.find((s) => String(s._id) === String(subcategoryIdParam));
       if (subcat) {
         const parentCatId = subcat.catid?._id || subcat.catid;
-        const cat = categories.find((c) => String(c._id) === String(parentCatId));
+        const cat = displayCategories.find((c) => String(c._id) === String(parentCatId));
         if (cat) {
           setSelectedCategory(cat.name || cat.cname || "All");
         }
@@ -169,7 +198,7 @@ const Shop = memo(() => {
     } else if (!subcategoryIdParam && !sellerIdParam && !searchQueryParam) {
       setSelectedCategory("All");
     }
-  }, [categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, categories, subcategories]);
+  }, [categoryIdParam, subcategoryIdParam, sellerIdParam, searchQueryParam, displayCategories, displaySubcategories]);
 
   const maxPriceLimit = useMemo(() => {
     if (!rawProducts || rawProducts.length === 0) return 500000;
@@ -202,16 +231,16 @@ const Shop = memo(() => {
         newBreadcrumbs.push({ label: 'Shop', path: '/shop' });
       }
     } else if (categoryId) {
-      const category = categories.find(cat => cat._id === categoryId);
+      const category = displayCategories.find(cat => cat._id === categoryId);
       if (category) {
         newBreadcrumbs.push({ label: 'Shop', path: '/shop' });
         newBreadcrumbs.push({ label: category.name, path: `/shop?category=${categoryId}` });
       }
     } else if (subcategoryId) {
-      const subcategory = subcategories.find(sub => sub._id === subcategoryId);
+      const subcategory = displaySubcategories.find(sub => sub._id === subcategoryId);
       const categoryIdFromParam = searchParams.get('category');
       if (subcategory && categoryIdFromParam) {
-        const category = categories.find(cat => cat._id === categoryIdFromParam);
+        const category = displayCategories.find(cat => cat._id === categoryIdFromParam);
         if (category) {
           newBreadcrumbs.push({ label: 'Shop', path: '/shop' });
           newBreadcrumbs.push({ label: category.name, path: `/shop?category=${categoryIdFromParam}` });
@@ -223,7 +252,7 @@ const Shop = memo(() => {
     }
 
     setBreadcrumbs(newBreadcrumbs);
-  }, [searchParams, categories, subcategories, sellers]);
+  }, [searchParams, displayCategories, displaySubcategories, sellers]);
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -550,7 +579,7 @@ const Shop = memo(() => {
                             newParams.delete('category');
                             newParams.delete('subcategory');
                           } else {
-                            const catObj = categories.find(c => (c.name || c.cname) === cat);
+                            const catObj = displayCategories.find(c => (c.name || c.cname) === cat);
                             if (catObj) {
                               newParams.set('category', catObj._id);
                               newParams.delete('subcategory');

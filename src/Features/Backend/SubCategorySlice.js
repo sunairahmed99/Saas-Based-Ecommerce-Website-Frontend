@@ -77,7 +77,13 @@ const SubcategorySlice = createSlice({
     error: null,
   },
 
-  reducers: {},
+  reducers: {
+    hydrateSubcategoriesFromCache: (state, action) => {
+      if (!state.subcategories?.length && Array.isArray(action.payload) && action.payload.length > 0) {
+        state.subcategories = action.payload;
+      }
+    },
+  },
 
   extraReducers: (builder) => {
     builder
@@ -136,6 +142,7 @@ const SubcategorySlice = createSlice({
   },
 });
 
+export const { hydrateSubcategoriesFromCache } = SubcategorySlice.actions;
 export default SubcategorySlice.reducer;
 
 export const selectsubcategories = (state) => state.subcategories.subcategories;

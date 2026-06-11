@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
@@ -9,19 +9,24 @@ import { fetchcategories } from '../Features/Backend/CategorySlice';
 import { fetchsubcategories } from '../Features/Backend/SubCategorySlice';
 import { fetchproducts } from '../Features/Backend/ProductSlice';
 import { prefetchAllShopProducts } from '../utils/prefetchProduct';
+import { saveCatalogCache } from '../utils/catalogCache';
 
 const GoogleCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
+  const completedRef = useRef(false);
 
   useEffect(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+
     const completeGoogleLogin = async () => {
       const params = new URLSearchParams(location.search);
       const token = params.get('token');
       const loginType = params.get('loginType') || 'google';
-      const redirectTo = params.get('redirectTo') || '/';
+      const redirectTo = sessionStorage.getItem('postLoginRedirect') || params.get('redirectTo') || '/shop';
 
       if (!token) {
         navigate('/login?error=google_auth_incomplete', { replace: true });
@@ -37,16 +42,21 @@ const GoogleCallback = () => {
           dispatch(fetchFavorites());
         }
 
-        // Google OAuth does a full page reload, wiping in-memory caches.
-        // Warm shop data before redirect so the shop page does not show a loading skeleton.
-        await Promise.all([
-          dispatch(fetchcategories()).unwrap().catch(() => {}),
-          dispatch(fetchsubcategories()).unwrap().catch(() => {}),
-          dispatch(fetchproducts()).unwrap().catch(() => {}),
-          prefetchAllShopProducts(queryClient).catch(() => {}),
+        const [categories, subcategories, products] = await Promise.all([
+          dispatch(fetchcategories()).unwrap().catch(() => null),
+          dispatch(fetchsubcategories()).unwrap().catch(() => null),
+          dispatch(fetchproducts()).unwrap().catch(() => null),
+          prefetchAllShopProducts(queryClient).catch(() => null),
         ]);
 
+        saveCatalogCache({
+          categories: categories || undefined,
+          subcategories: subcategories || undefined,
+          products: products || undefined,
+        });
+
         sessionStorage.setItem('splashComplete', '1');
+        sessionStorage.removeItem('postLoginRedirect');
         navigate(redirectTo, { replace: true });
       } catch {
         localStorage.removeItem('token');

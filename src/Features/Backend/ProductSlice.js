@@ -357,7 +357,12 @@ const ProductSlice = createSlice({
         setVal(state.trendingProducts);
         setVal(state.forYouProducts);
       }
-    }
+    },
+    hydrateProductsFromCache: (state, action) => {
+      if (!state.products?.length && Array.isArray(action.payload) && action.payload.length > 0) {
+        state.products = action.payload;
+      }
+    },
   },
 
   extraReducers: (builder) => {
@@ -553,7 +558,7 @@ const ProductSlice = createSlice({
   },
 });
 
-export const { incrementProductViews, setProductViews } = ProductSlice.actions;
+export const { incrementProductViews, setProductViews, hydrateProductsFromCache } = ProductSlice.actions;
 
 export default ProductSlice.reducer;
 

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchShopCategory, prefetchShopSubcategory } from "../utils/prefetchProduct";
+import { loadCatalogCache } from "../utils/catalogCache";
 import { selectUser, logout, fetchCurrentUser } from "../Features/Backend/UserSlice";
 import { selectSeller, logoutSeller, fetchCurrentSeller } from "../Features/Backend/SellerSlice";
 import { fetchFavorites, selectFavorites } from "../Features/Backend/FavoriteSlice";
@@ -28,6 +29,9 @@ const Navbar = () => {
   const cartCount = useSelector(selectCartBadgeCount);
   const categories = useSelector(selectcategories) || [];
   const subcategories = useSelector(selectsubcategories) || [];
+  const catalogSnapshot = React.useMemo(() => loadCatalogCache(), []);
+  const displayCategories = categories.length > 0 ? categories : (catalogSnapshot?.categories || []);
+  const displaySubcategories = subcategories.length > 0 ? subcategories : (catalogSnapshot?.subcategories || []);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -90,9 +94,9 @@ const Navbar = () => {
 
   // Prepare categories with their subcategories
   const categoryList = React.useMemo(() => {
-    return (categories || []).map((cat) => {
+    return (displayCategories || []).map((cat) => {
       const currentCatId = cat?._id || cat?.id;
-      const subs = (subcategories || []).filter((sub) => {
+      const subs = (displaySubcategories || []).filter((sub) => {
         const subCatId = sub?.catid?._id || sub?.catid;
         return (
           subCatId && 
@@ -110,7 +114,7 @@ const Navbar = () => {
         })),
       };
     });
-  }, [categories, subcategories]);
+  }, [displayCategories, displaySubcategories]);
 
   return (
     <nav className="custom-navbar">
@@ -309,7 +313,15 @@ const Navbar = () => {
           <div className={profileOpen ? "profile-dropdown show" : "profile-dropdown"}>
             {!user && !seller && (
               <>
-                <Link to="/login">Login</Link>
+                <Link
+                  to="/login"
+                  onClick={() => {
+                    const returnPath = `${window.location.pathname}${window.location.search}`;
+                    sessionStorage.setItem('postLoginRedirect', returnPath && returnPath !== '/login' ? returnPath : '/shop');
+                  }}
+                >
+                  Login
+                </Link>
                 <Link to="/register">Register</Link>
               </>
             )}

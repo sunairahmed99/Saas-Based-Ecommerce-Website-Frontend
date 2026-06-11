@@ -107,7 +107,13 @@ const categorySlice = createSlice({
     error: null,
   },
 
-  reducers: {},
+  reducers: {
+    hydrateCategoriesFromCache: (state, action) => {
+      if (!state.categories?.length && Array.isArray(action.payload) && action.payload.length > 0) {
+        state.categories = action.payload;
+      }
+    },
+  },
 
   extraReducers: (builder) => {
     builder
@@ -184,6 +190,7 @@ const categorySlice = createSlice({
   },
 });
 
+export const { hydrateCategoriesFromCache } = categorySlice.actions;
 export default categorySlice.reducer;
 
 // SELECTORS

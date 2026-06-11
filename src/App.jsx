@@ -50,6 +50,7 @@ import { useLocation } from "react-router-dom";
 import ScrollToTop from "./Components/ScrollToTop";
 import { ToastContainer } from "./Components/Toast";
 import SplashScreen from "./Components/SplashScreen";
+import CatalogHydrator from "./Components/CatalogHydrator";
 import AdminProtectedRoute from "./Components/AdminComponent/AdminProtectedRoute";
 
 const shouldSkipSplash = (pathname, search) => {
@@ -86,6 +87,7 @@ const AppContent = () => {
 
   return (
     <div className="App">
+      <CatalogHydrator />
       <ScrollToTop />
       <Suspense fallback={
         <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(128deg, #1e2027 0%, #334466 100%)", color: "#00eaff" }}>
