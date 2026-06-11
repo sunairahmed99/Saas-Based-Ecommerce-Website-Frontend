@@ -38,25 +38,20 @@ const GoogleCallback = () => {
 
       try {
         await dispatch(fetchCurrentUser()).unwrap();
+
+        // Fire-and-forget: background mein load honay do, await mat karo
         if (loginType === 'google' || loginType === 'user') {
           dispatch(fetchFavorites());
         }
-
-        const [categories, subcategories, products] = await Promise.all([
-          dispatch(fetchcategories()).unwrap().catch(() => null),
-          dispatch(fetchsubcategories()).unwrap().catch(() => null),
-          dispatch(fetchproducts()).unwrap().catch(() => null),
-          prefetchAllShopProducts(queryClient).catch(() => null),
-        ]);
-
-        saveCatalogCache({
-          categories: categories || undefined,
-          subcategories: subcategories || undefined,
-          products: products || undefined,
-        });
+        dispatch(fetchcategories());
+        dispatch(fetchsubcategories());
+        dispatch(fetchproducts());
+        prefetchAllShopProducts(queryClient).catch(() => null);
 
         sessionStorage.setItem('splashComplete', '1');
         sessionStorage.removeItem('postLoginRedirect');
+
+        // Seedha redirect — prefetch ka wait nahi
         navigate(redirectTo, { replace: true });
       } catch {
         localStorage.removeItem('token');
