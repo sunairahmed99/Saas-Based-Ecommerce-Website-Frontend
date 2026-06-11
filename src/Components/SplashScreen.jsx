@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -11,8 +11,8 @@ import { fetchBanners } from '../Features/Backend/BannerSlice';
 import { fetchTopPerformingSellers } from '../Features/Backend/SellerSlice';
 import { fetchActiveBoosts } from '../Features/Backend/ProductBoostSlice';
 import { fetchApprovedReviews } from '../Features/Backend/ReviewSlice';
-import { selectUser } from '../Features/Backend/UserSlice';
 import { motion, AnimatePresence } from 'framer-motion';
+import { prefetchAllShopProducts } from '../utils/prefetchProduct';
 import './SplashScreen.css';
 
 // Helper to filter out dummy products matching the same criteria as Home/Shop pages
@@ -28,7 +28,6 @@ const filterDummyProducts = (products) => {
 const SplashScreen = ({ onComplete }) => {
     const dispatch = useDispatch();
     const queryClient = useQueryClient();
-    const user = useSelector(selectUser);
     const [progress, setProgress] = useState(0);
     const [statusText, setStatusText] = useState('Initializing...');
     const [isVisible, setIsVisible] = useState(true);
@@ -39,8 +38,6 @@ const SplashScreen = ({ onComplete }) => {
         const startTime = Date.now();
 
         const loadStore = async () => {
-            const userId = user?.data?._id || user?._id || null;
-
             // Only block on nav essentials; everything else loads in background
             const criticalTasks = [
                 {
@@ -97,24 +94,7 @@ const SplashScreen = ({ onComplete }) => {
                     },
                     staleTime: 5 * 60 * 1000,
                 }).catch(() => {});
-                if (userId) {
-                    queryClient.prefetchQuery({
-                        queryKey: ['forYouProducts', userId],
-                        queryFn: async () => {
-                            const res = await axios.get(`${API_BASE_URL}/product/foryou/${userId}`);
-                            return filterDummyProducts(res.data?.data || []);
-                        },
-                        staleTime: 5 * 60 * 1000,
-                    }).catch(() => {});
-                }
-                queryClient.prefetchQuery({
-                    queryKey: ['shopProducts', { categoryIdParam: null, subcategoryIdParam: null, sellerIdParam: null, searchQueryParam: null }],
-                    queryFn: async () => {
-                        const res = await axios.get(`${API_BASE_URL}/product/getall`);
-                        return filterDummyProducts(res.data?.data || []);
-                    },
-                    staleTime: 5 * 60 * 1000,
-                }).catch(() => {});
+                prefetchAllShopProducts(queryClient).catch(() => {});
             };
             fetchBackgroundResources();
 
@@ -145,7 +125,7 @@ const SplashScreen = ({ onComplete }) => {
         return () => {
             isMountedRef.current = false;
         };
-    }, [dispatch, queryClient, onComplete, user]);
+    }, [dispatch, queryClient, onComplete]);
 
     return (
         <AnimatePresence>

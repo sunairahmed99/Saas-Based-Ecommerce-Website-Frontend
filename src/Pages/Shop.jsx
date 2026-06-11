@@ -21,6 +21,7 @@ import { trackCategoryVisit } from "../utils/userBehavior";
 import OptimizedImage from "../Components/OptimizedImage";
 import { resolveProductImage } from "../constants/images";
 import { prefetchProduct, getFilteredProductsFromAllCache } from "../utils/prefetchProduct";
+import { selectProducts } from "../Features/Backend/ProductSlice";
 
 const getRefId = (value) => {
   if (value == null) return null;
@@ -36,6 +37,7 @@ const Shop = memo(() => {
 
   const user = useSelector(selectUser);
   const seller = useSelector(selectSeller);
+  const reduxProducts = useSelector(selectProducts) || [];
   const favorites = useSelector(selectFavorites) || [];
   const categories = useSelector(selectcategories) || [];
   const subcategories = useSelector(selectsubcategories) || [];
@@ -140,7 +142,11 @@ const Shop = memo(() => {
         subcategoryId: subcategoryIdParam,
         sellerId: sellerIdParam,
       });
-      return cached?.length ? cached : undefined;
+      if (cached?.length) return cached;
+      if (reduxProducts.length > 0) {
+        return scopeProducts(reduxProducts);
+      }
+      return undefined;
     },
   });
 

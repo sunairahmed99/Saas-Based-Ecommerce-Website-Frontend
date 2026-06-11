@@ -34,6 +34,20 @@ const filterDummyProducts = (products) => {
   return products.filter((p) => !(p?.pname && p.pname.includes("Pulse")));
 };
 
+export async function fetchAllShopProducts() {
+  const res = await axios.get(`${API_BASE_URL}/product/getall`);
+  return filterDummyProducts(res.data?.data || []);
+}
+
+export function prefetchAllShopProducts(queryClient) {
+  if (!queryClient) return Promise.resolve();
+  return queryClient.prefetchQuery({
+    queryKey: ["shopProducts", ALL_SHOP_QUERY_KEY],
+    queryFn: fetchAllShopProducts,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function prefetchShopCategory(queryClient, categoryId) {
   if (!categoryId || !queryClient) return;
   return queryClient.prefetchQuery({
