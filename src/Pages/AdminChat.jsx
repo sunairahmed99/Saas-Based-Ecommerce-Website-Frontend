@@ -13,16 +13,13 @@ const AdminChat = () => {
     
     const [selectedUser, setSelectedUser] = useState(null);
     const [newMessage, setNewMessage] = useState('');
-    const [socket, setSocket] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [socket, setSocket] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
+    
     const messagesEndRef = useRef(null);
     const socketRef = useRef(null);
     const selectedUserRef = useRef(null);
-
-    // Keep the ref updated with the latest selectedUser
-    useEffect(() => {
-        selectedUserRef.current = selectedUser;
-    }, [selectedUser]);
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -30,14 +27,70 @@ const AdminChat = () => {
         }, 100);
     };
 
+    // Keep selectedUserRef in sync so socket callback can access the latest value
+    useEffect(() => {
+        selectedUserRef.current = selectedUser;
+    }, [selectedUser]);
+
+    // Initialize socket connection
+    useEffect(() => {
+        const newSocket = createAppSocket(API_BASE);
+        if (newSocket) {
+            socketRef.current = newSocket;
+            setSocket(newSocket);
+            setIsConnected(newSocket.connected);
+
+            newSocket.on('connect', () => {
+                setIsConnected(true);
+            });
+
+            newSocket.on('disconnect', () => {
+                setIsConnected(false);
+            });
+
+            newSocket.on('receive_message', (message) => {
+                const currentSelected = selectedUserRef.current;
+                if (currentSelected) {
+                    const userId = currentSelected._id;
+                    // If message is related to currently open chat
+                    if (message.sender === userId || message.receiver === userId) {
+                        queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatMessages(userId) });
+                    }
+                }
+                // Also update user list to show last message in sidebar
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
+            });
+
+            newSocket.on('new_chat_notification', (data) => {
+                queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
+            });
+        }
+
+        return () => {
+            if (newSocket) {
+                newSocket.close();
+            }
+        };
+    }, [queryClient]);
+
+    // Join room when selectedUser changes
+    useEffect(() => {
+        if (socket && selectedUser?._id) {
+            socket.emit('admin_join_user', selectedUser._id);
+        }
+    }, [selectedUser, socket]);
+
+    // Users list - refresh every 10 seconds (with socket fallback)
     const { data: users = [] } = useAdminQuery({
         queryKey: adminQueryKeys.chatUsers,
         queryFn: async () => {
             const res = await axios.get(`${API_BASE}/api/chat/admin/users`);
             return res.data?.data || [];
         },
+        refetchInterval: 10000,
     });
 
+    // Messages - auto-refresh every 10 seconds (with socket fallback)
     const { data: messages = [] } = useAdminQuery({
         queryKey: adminQueryKeys.chatMessages(selectedUser?._id),
         queryFn: async () => {
@@ -46,68 +99,34 @@ const AdminChat = () => {
             return res.data?.data || [];
         },
         enabled: !!selectedUser?._id,
+        refetchInterval: 10000,
     });
 
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
-    useEffect(() => {
-        const newSocket = createAppSocket(API_BASE);
-        if (!newSocket) {
-            socketRef.current = null;
-            setSocket(null);
-            return;
-        }
-
-        socketRef.current = newSocket;
-        setSocket(newSocket);
-
-        newSocket.on('connect_error', () => {
-            newSocket.close();
-            socketRef.current = null;
-            setSocket(null);
-        });
-
-        newSocket.on('receive_message', (message) => {
-            // Check if message belongs to current conversation using the ref
-            const currentSelected = selectedUserRef.current;
-            if (currentSelected && (message.sender == currentSelected._id || message.receiver == currentSelected._id)) {
-                queryClient.setQueryData(adminQueryKeys.chatMessages(currentSelected._id), (oldData) => {
-                    return [...(oldData || []), message];
-                });
-            }
-            // Refresh user list for last message updates
-            queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
-        });
-
-        newSocket.on('new_chat_notification', () => {
-            queryClient.invalidateQueries({ queryKey: adminQueryKeys.chatUsers });
-        });
-
-        return () => newSocket.close();
-    }, [queryClient]);
-
     const handleSelectUser = (user) => {
         setSelectedUser(user);
-        if (socketRef.current) {
-            socketRef.current.emit('admin_join_user', user._id);
-        }
     };
 
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedUser || !socketRef.current) return;
+        if (!newMessage.trim() || !selectedUser || !socket) return;
+
+        const msgText = newMessage.trim();
+        setNewMessage('');
 
         const messageData = {
-            sender: "admin_id_placeholder", 
+            sender: 'admin_id_placeholder',
             receiver: selectedUser._id,
-            message: newMessage,
-            isAdmin: true
+            message: msgText,
+            isAdmin: true,
+            createdAt: new Date().toISOString()
         };
 
-        socketRef.current.emit('send_message', messageData);
-        setNewMessage('');
+        // Emit message over socket
+        socket.emit('send_message', messageData);
     };
 
     const filteredUsers = users.filter(u => 
@@ -126,7 +145,7 @@ const AdminChat = () => {
                                 <FaUser />
                             </div>
                             <div className="sidebar-actions">
-                                <FaCircle className="action-icon" />
+                                <FaCircle className={`action-icon ${isConnected ? 'connected' : 'disconnected'}`} style={{ color: isConnected ? '#4caf50' : '#f44336' }} />
                                 <FaComments className="action-icon" />
                                 <FaEllipsisV className="action-icon" />
                             </div>
@@ -200,7 +219,11 @@ const AdminChat = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="header-right">
+                                <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '0.85rem', color: isConnected ? '#4caf50' : '#f44336', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isConnected ? '#4caf50' : '#f44336', display: 'inline-block' }}></span>
+                                        {isConnected ? 'Connected' : 'Connecting...'}
+                                    </span>
                                     <FaEllipsisV className="header-menu-icon" />
                                 </div>
                             </div>
@@ -208,7 +231,7 @@ const AdminChat = () => {
                             <div className="admin-chat-messages">
                                 {messages.map((msg, index) => (
                                     <div 
-                                        key={index} 
+                                        key={msg._id || index} 
                                         className={`admin-msg-bubble ${msg.isAdmin ? 'sent' : 'received'}`}
                                     >
                                         <div className="bubble-content">{msg.message}</div>
@@ -225,11 +248,12 @@ const AdminChat = () => {
                                 <button type="button" className="input-icon-btn"><FaPaperclip /></button>
                                 <input 
                                     type="text" 
-                                    placeholder="Type a message..." 
+                                    placeholder={isConnected ? "Type a message..." : "Connecting..."} 
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
+                                    disabled={!socket}
                                 />
-                                <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
+                                <button type="submit" className="send-btn" disabled={!newMessage.trim() || !socket}>
                                     <FaPaperPlane />
                                 </button>
                             </form>

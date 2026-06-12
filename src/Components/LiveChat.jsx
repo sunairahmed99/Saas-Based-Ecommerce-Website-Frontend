@@ -18,6 +18,7 @@ const LiveChat = () => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [socket, setSocket] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
     const [showLoginToast, setShowLoginToast] = useState(false);
     const messagesEndRef = useRef(null);
     const socketRef = useRef(null);
@@ -52,6 +53,7 @@ const LiveChat = () => {
                 socketRef.current.close();
                 socketRef.current = null;
                 setSocket(null);
+                setIsConnected(false);
             }
             return;
         }
@@ -64,11 +66,21 @@ const LiveChat = () => {
         const newSocket = createAppSocket(API_BASE);
         if (!newSocket) {
             setSocket(null);
+            setIsConnected(false);
             return;
         }
 
         socketRef.current = newSocket;
         setSocket(newSocket);
+        setIsConnected(newSocket.connected);
+
+        newSocket.on('connect', () => {
+            setIsConnected(true);
+        });
+
+        newSocket.on('disconnect', () => {
+            setIsConnected(false);
+        });
 
         newSocket.emit('join_room', userId);
 
@@ -78,22 +90,17 @@ const LiveChat = () => {
             }
         });
 
-        newSocket.on('connect_error', () => {
-            newSocket.close();
-            socketRef.current = null;
-            setSocket(null);
-        });
-
         return () => {
             newSocket.close();
             socketRef.current = null;
             setSocket(null);
+            setIsConnected(false);
         };
     }, [user, isOpen]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !socket?.connected) return;
+        if (!newMessage.trim() || !socket) return;
 
         const userId = user?.data?._id || user?._id;
         const messageData = {
@@ -122,7 +129,7 @@ const LiveChat = () => {
         <div className="live-chat-wrapper">
             <div className={`chat-icon-floating ${isOpen ? 'active' : ''}`} onClick={toggleChat}>
                 {isOpen ? <FaTimes /> : <FaComments />}
-                {!isOpen && <span className="online-dot"></span>}
+                {!isOpen && <span className="online-dot" style={{ backgroundColor: isConnected ? '#4caf50' : '#f44336' }}></span>}
             </div>
 
             {isOpen && (
@@ -134,7 +141,7 @@ const LiveChat = () => {
                             </div>
                             <div className="admin-text">
                                 <h4>Support Admin</h4>
-                                <span>Online</span>
+                                <span>{isConnected ? 'Online' : 'Connecting...'}</span>
                             </div>
                         </div>
                         <button className="close-chat" onClick={() => setIsOpen(false)}>
@@ -163,7 +170,7 @@ const LiveChat = () => {
                     <form className="chat-input-area" onSubmit={handleSendMessage}>
                         <input 
                             type="text" 
-                            placeholder={socket ? "Type a message..." : "Live chat unavailable (use local server for real-time)"}
+                            placeholder={isConnected ? "Type a message..." : "Connecting..."}
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                             disabled={!socket}

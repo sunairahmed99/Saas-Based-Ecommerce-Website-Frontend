@@ -5,18 +5,7 @@ import { io } from "socket.io-client";
  * Enable only for local dev or when VITE_ENABLE_SOCKET=true with a compatible backend host.
  */
 export const isSocketIoEnabled = () => {
-  if (import.meta.env.VITE_ENABLE_SOCKET === "true") return true;
-  if (import.meta.env.VITE_ENABLE_SOCKET === "false") return false;
-
-  const apiUrl = import.meta.env.VITE_API_URL || "";
-  if (!apiUrl) return false;
-
-  try {
-    const host = new URL(apiUrl).hostname;
-    return host === "localhost" || host === "127.0.0.1";
-  } catch {
-    return false;
-  }
+  return true;
 };
 
 export const createAppSocket = (baseUrl, options = {}) => {
@@ -24,7 +13,9 @@ export const createAppSocket = (baseUrl, options = {}) => {
 
   return io(baseUrl, {
     autoConnect: true,
-    reconnection: false,
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000,
     timeout: 8000,
     transports: ["websocket", "polling"],
     ...options,
